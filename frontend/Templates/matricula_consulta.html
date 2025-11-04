@@ -199,11 +199,8 @@
         
         <!-- Botones justo después de la tabla -->
         <div class="actions-section actions-after-table">
-            <button type="button" class="btn-primary" onclick="guardarMatricula()">
-                💾 Guardar Progreso
-            </button>
-            <button type="button" class="btn-success" onclick="actualizarMatricula()">
-                🔄 Actualizar Matrícula
+            <button id="btn-guardar-matricula" type="button" class="btn-primary" onclick="guardarYActualizarMatricula()">
+                💾 Guardar Matrícula
             </button>
             <button type="button" class="btn-secondary" onclick="limpiarFormulario()">
                 🧹 Limpiar Formulario
@@ -411,10 +408,39 @@
             return;
         }
 
+        // Determinar turno actual (ID y nombre)
+        const turnoActualId = parseInt(document.getElementById('turno')?.value || '');
+        let turnoActualNombre = document.getElementById('turno-nombre')?.textContent || '';
+        if ((!turnoActualNombre || !turnoActualNombre.trim()) && Array.isArray(turnosDisponibles)) {
+            const t = turnosDisponibles.find(x => parseInt(x.Id_Turno) === turnoActualId);
+            if (t) turnoActualNombre = t.Turno;
+        }
+
+        // Si el SP trae columna de Turno, filtrar a solo el turno actual
+        const turnoCandidates = ['Turno','Nombre_Turno','Id_Turno','IdTurno'];
+        const firstRow = rows[0] || {};
+        const firstKeys = Object.keys(firstRow);
+        function findKeyLocal(cands) {
+            for (let c of cands) if (firstKeys.includes(c)) return c;
+            const low = firstKeys.reduce((acc,k)=>{acc[k.toLowerCase()]=k;return acc;},{});
+            for (let c of cands) if (low[c.toLowerCase()]) return low[c.toLowerCase()];
+            return null;
+        }
+        const turnoKey = findKeyLocal(turnoCandidates);
+        const rowsTurno = turnoKey
+            ? rows.filter(r => {
+                const tv = r[turnoKey];
+                const byNameT = String(tv).toLowerCase() === String(turnoActualNombre).toLowerCase();
+                const byIdT = !isNaN(parseInt(tv)) && parseInt(tv) === turnoActualId;
+                return byNameT || byIdT;
+            })
+            : rows;
+        console.log(`🧭 Filtrado por turno: ${rows.length} → ${rowsTurno.length} filas para turno actual (${turnoActualNombre || turnoActualId})`);
+
         // Objeto temporal para organizar datos por semestre
         const datosPorSemestre = {};
 
-        rows.forEach((row, index) => {
+        rowsTurno.forEach((row, index) => {
             // Extraer información de la fila
             const semestre = row.Semestre;
             const tipoIngreso = row.Tipo_de_Ingreso;
@@ -492,17 +518,19 @@
             }
         });
 
-        // Guardar en la variable global datosMatriculaPorSemestre
+        // Guardar en la variable global datosMatriculaPorSemestre (por turno y semestre)
+        if (!datosMatriculaPorSemestre[turnoActualId]) {
+            datosMatriculaPorSemestre[turnoActualId] = {};
+        }
         for (let semestreId in datosPorSemestre) {
             const datos = datosPorSemestre[semestreId];
             const cantidadDatos = Object.keys(datos).length;
-            
-            // Solo sobrescribir si no hay datos guardados previamente o si vienen datos nuevos del SP
-            if (!datosMatriculaPorSemestre[semestreId] || Object.keys(datosMatriculaPorSemestre[semestreId]).length === 0) {
-                datosMatriculaPorSemestre[semestreId] = datos;
-                console.log(`💾 Guardados ${cantidadDatos} valores del SP para semestre ${semestreId}`);
+            const existente = datosMatriculaPorSemestre[turnoActualId][semestreId] || {};
+            if (Object.keys(existente).length === 0) {
+                datosMatriculaPorSemestre[turnoActualId][semestreId] = datos;
+                console.log(`💾 [Turno ${turnoActualId}] Guardados ${cantidadDatos} valores del SP para semestre ${semestreId}`);
             } else {
-                console.log(`📌 Semestre ${semestreId} ya tiene ${Object.keys(datosMatriculaPorSemestre[semestreId]).length} valores guardados, conservando...`);
+                console.log(`📌 [Turno ${turnoActualId}] Semestre ${semestreId} ya tiene ${Object.keys(existente).length} valores guardados, conservando...`);
             }
         }
 
@@ -1080,8 +1108,9 @@
         // NOTA: Solo restaurar si hay datos guardados localmente, 
         // de lo contrario conservar los valores que vienen del SP
         const semestreActual = parseInt(document.getElementById('semestre').value);
+        const turnoActualId_forRestore = parseInt(document.getElementById('turno').value);
         setTimeout(() => {
-            const datosExistentes = datosMatriculaPorSemestre[semestreActual] || {};
+            const datosExistentes = (datosMatriculaPorSemestre[turnoActualId_forRestore] || {})[semestreActual] || {};
             if (Object.keys(datosExistentes).length > 0) {
                 console.log('📦 Hay datos guardados localmente, restaurando...');
                 restaurarDatosSemestre(semestreActual);
@@ -1288,8 +1317,9 @@
         // Restaurar datos guardados del semestre actual después de renderizar
         // NOTA: Solo restaurar si hay datos guardados localmente
         const semestreActual = parseInt(document.getElementById('semestre').value);
+        const turnoActualId = parseInt(document.getElementById('turno').value);
         setTimeout(() => {
-            const datosExistentes = datosMatriculaPorSemestre[semestreActual] || {};
+            const datosExistentes = (datosMatriculaPorSemestre[turnoActualId] || {})[semestreActual] || {};
             if (Object.keys(datosExistentes).length > 0) {
                 console.log('📦 Hay datos guardados localmente (tabla vacía), restaurando...');
                 restaurarDatosSemestre(semestreActual);
@@ -1311,7 +1341,8 @@
     let semaforoEstados = {{ semaforo_estados | tojson }};
     console.log('🚦 Estados del semáforo cargados:', semaforoEstados);
 
-    // Almacén global de datos por semestre
+    // Almacén global de datos por semestre y turno
+    // Estructura: { [turnoId]: { [semestreId]: { "tipo_grupo_sexo": valor } } }
     let datosMatriculaPorSemestre = {};
 
     // Almacén de estados de semáforo por semestre (viene del SP)
@@ -1397,6 +1428,8 @@
 
     // Función para cambiar turno
     function cambiarTurno(direccion) {
+        // Guardar datos del contexto actual antes de cambiar turno
+        try { guardarDatosSemestreActual(); } catch (e) { console.warn('No se pudo guardar antes de cambiar turno', e); }
         turnoActualIndex += direccion;
         
         // Validar límites
@@ -1528,11 +1561,15 @@
     // Función para guardar datos del semestre actual
     function guardarDatosSemestreActual() {
         const semestreActual = parseInt(document.getElementById('semestre').value);
+        const turnoActualId = parseInt(document.getElementById('turno').value);
         const inputs = document.querySelectorAll('input.input-matricula-nueva');
         
-        // Inicializar almacén para este semestre si no existe
-        if (!datosMatriculaPorSemestre[semestreActual]) {
-            datosMatriculaPorSemestre[semestreActual] = {};
+        // Inicializar almacén por turno/semestre si no existe
+        if (!datosMatriculaPorSemestre[turnoActualId]) {
+            datosMatriculaPorSemestre[turnoActualId] = {};
+        }
+        if (!datosMatriculaPorSemestre[turnoActualId][semestreActual]) {
+            datosMatriculaPorSemestre[turnoActualId][semestreActual] = {};
         }
         
         inputs.forEach(input => {
@@ -1542,19 +1579,20 @@
             const valor = input.value || '';
             const key = `${tipoIngreso}_${grupoEdad}_${sexo}`;
             
-            datosMatriculaPorSemestre[semestreActual][key] = valor;
+            datosMatriculaPorSemestre[turnoActualId][semestreActual][key] = valor;
         });
         
-        console.log(`💾 Datos guardados para semestre ${semestreActual}:`, datosMatriculaPorSemestre[semestreActual]);
+        console.log(`💾 [Turno ${turnoActualId}] Datos guardados para semestre ${semestreActual}:`, datosMatriculaPorSemestre[turnoActualId][semestreActual]);
     }
 
     // Función para restaurar datos del semestre seleccionado
     function restaurarDatosSemestre(semestreNum) {
-        const datosDelSemestre = datosMatriculaPorSemestre[semestreNum] || {};
+        const turnoActualId = parseInt(document.getElementById('turno').value);
+        const datosDelSemestre = (datosMatriculaPorSemestre[turnoActualId] || {})[semestreNum] || {};
         const tieneDatosGuardados = Object.keys(datosDelSemestre).length > 0;
         const inputs = document.querySelectorAll('input.input-matricula-nueva');
         
-        console.log(`🔄 Restaurando semestre ${semestreNum}: ${tieneDatosGuardados ? 'Tiene datos guardados' : 'Sin datos guardados - conservando valores del SP'}`);
+        console.log(`🔄 [Turno ${turnoActualId}] Restaurando semestre ${semestreNum}: ${tieneDatosGuardados ? 'Tiene datos guardados' : 'Sin datos guardados - conservando valores del SP'}`);
         
         inputs.forEach(input => {
             const tipoIngreso = input.getAttribute('data-tipo-ingreso');
@@ -1767,6 +1805,106 @@
             saveBtn.textContent = originalText;
             saveBtn.disabled = false;
         });
+    }
+
+    // Nuevo flujo unificado: guarda en Temp_Matricula y, si todo va bien, ejecuta el SP de actualización
+    async function guardarYActualizarMatricula() {
+        // Validar que al menos un campo tenga datos (incluye 0)
+        const inputs = document.querySelectorAll('input.input-matricula-nueva');
+        let hasData = false;
+        for (let input of inputs) {
+            const valor = parseInt(input.value);
+            if (!isNaN(valor) && valor >= 0) { hasData = true; break; }
+        }
+        if (!hasData) { alert('⚠️ Por favor, ingrese datos antes de guardar.'); return; }
+
+        // Filtros requeridos
+        const periodo = document.getElementById('periodo').value;
+        const programa = document.getElementById('programa').value;
+        const semestre = document.getElementById('semestre').value;
+        const modalidad = document.getElementById('modalidad').value;
+        const turno = document.getElementById('turno').value;
+        if (!periodo || !programa || !semestre || !modalidad || !turno) {
+            alert('⚠️ Por favor, complete todos los filtros antes de guardar.');
+            return;
+        }
+
+        const totalGruposInput = document.getElementById('input-total-grupos');
+        const totalGrupos = totalGruposInput ? (parseInt(totalGruposInput.value) || 0) : 0;
+
+        // Construir payload como en guardarMatricula
+        const payload = {
+            periodo, programa, semestre, modalidad, turno,
+            total_grupos: totalGrupos,
+            datos_matricula: {}
+        };
+        inputs.forEach(input => {
+            if (!input.disabled) {
+                const tipoIngreso = input.getAttribute('data-tipo-ingreso');
+                const grupoEdad = input.getAttribute('data-grupo-edad');
+                const sexo = input.getAttribute('data-sexo');
+                const inputValue = input.value ? input.value.trim() : '';
+                const isAutoFilled = input.hasAttribute('data-auto-filled');
+                const hasUserValue = inputValue !== '';
+                if (hasUserValue || isAutoFilled) {
+                    const valor = parseInt(inputValue) || 0;
+                    if (valor >= 0) {
+                        const key = `${tipoIngreso}_${grupoEdad}_${sexo}`;
+                        payload.datos_matricula[key] = {
+                            tipo_ingreso: tipoIngreso,
+                            grupo_edad: grupoEdad,
+                            sexo: sexo,
+                            matricula: valor,
+                            salones: totalGrupos
+                        };
+                    }
+                }
+            }
+        });
+
+        const btn = document.getElementById('btn-guardar-matricula');
+        const original = btn.textContent;
+        btn.textContent = '⏳ Guardando…';
+        btn.disabled = true;
+
+        try {
+            // 1) Guardar en Temp_Matricula
+            const r1 = await fetch('/matricula/guardar_captura_completa', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const d1 = await r1.json();
+            if (d1.error) throw new Error(d1.error);
+            if (!d1.mensaje) throw new Error('No se pudo guardar la captura temporal');
+
+            // 2) Ejecutar actualización definitiva con el mismo período y total de grupos
+            btn.textContent = '⏳ Actualizando…';
+            const r2 = await fetch('/matricula/actualizar_matricula', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ periodo, total_grupos: totalGrupos })
+            });
+            const d2 = await r2.json();
+            if (d2.error) throw new Error(d2.error);
+            if (d2.warning) { alert(`⚠️ ${d2.warning}`); return; }
+
+            // Éxito total
+            let msg = `✅ ${d2.mensaje}`;
+            if (typeof d2.registros_procesados !== 'undefined') {
+                msg += `\n📊 Registros procesados: ${d2.registros_procesados}`;
+            }
+            msg += `\n👤 Usuario: ${d2.usuario || ''}`;
+            msg += `\n📅 Período: ${d2.periodo || periodo}`;
+            alert(msg);
+
+            // Recargar para traer datos del SP ya oficiales
+            location.reload();
+        } catch (e) {
+            console.error('Error en Guardar Matrícula unificado:', e);
+            alert(`❌ Error al guardar la matrícula: ${e.message}`);
+        } finally {
+            btn.textContent = original;
+            btn.disabled = false;
+        }
     }
 
     function scrollToVisibleInput(event) {
