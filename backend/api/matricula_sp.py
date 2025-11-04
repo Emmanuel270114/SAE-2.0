@@ -481,7 +481,7 @@ async def guardar_captura_completa(request: Request, db: Session = Depends(get_d
         semestre = data.get('semestre')
         modalidad = data.get('modalidad')
         turno = data.get('turno')
-        total_grupos = data.get('total_grupos', 0)
+        total_grupos = data.get('total_grupos')
         datos_matricula = data.get('datos_matricula', {})
         
         # Convertir período de ID a formato literal para guardar en Temp_Matricula

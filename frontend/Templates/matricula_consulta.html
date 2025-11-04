@@ -384,7 +384,8 @@
             const tipoIngreso = row.Tipo_de_Ingreso;
             const grupoEdad = row.Grupo_Edad;
             const sexo = row.Sexo;
-            const matricula = row.Matricula || 0;
+            // NO forzar 0: conservar null/undefined si vienen así del SP
+            const matricula = (row.Matricula !== undefined) ? row.Matricula : row['Total'];
 
             if (!semestre || !tipoIngreso || !grupoEdad || !sexo) {
                 console.log(`⚠️ Fila ${index} incompleta, saltando...`);
@@ -448,9 +449,9 @@
             
             console.log(`🔑 Fila ${index}: Semestre ${semestreId}, Grupo "${grupoEdad}"→ID:${grupoEdadId}, Clave: ${key}`);
             
-            // Guardar el valor
-            const valor = parseInt(matricula) || 0;
-            if (valor > 0) {
+            // Guardar el valor SOLO si es numérico (incluye 0); si es null/undefined, no guardar clave
+            const valor = parseInt(matricula);
+            if (!isNaN(valor)) {
                 datosPorSemestre[semestreId][key] = valor;
             }
         });
@@ -481,31 +482,63 @@
             
             // EXTRAER Y POBLAR TOTAL GRUPOS
             if (rows && rows.length > 0) {
-                // DEBUG: Mostrar estructura de la primera fila para identificar el campo correcto
-                console.log('🔍 DEBUG Total Grupos - Primera fila completa:', rows[0]);
-                console.log('🔍 DEBUG Total Grupos - Claves disponibles:', Object.keys(rows[0]));
-                console.log('🔍 DEBUG Total Grupos - Valor rows[0].salones:', rows[0].salones);
-                console.log('🔍 DEBUG Total Grupos - Valor rows[0].Salones:', rows[0].Salones);
-                
-                // Obtener el valor de 'salones' de la primera fila (todos deberían tener el mismo valor)
-                // Usar valores exactos sin || para evitar problemas con 0
-                let totalGrupos = 0;
-                if (rows[0].hasOwnProperty('salones')) {
-                    totalGrupos = parseInt(rows[0].salones) || 0;
-                } else if (rows[0].hasOwnProperty('Salones')) {
-                    totalGrupos = parseInt(rows[0].Salones) || 0;
-                } else if (rows[0].hasOwnProperty('SALONES')) {
-                    totalGrupos = parseInt(rows[0].SALONES) || 0;
+                // Determinar columnas
+                const turnoCandidates = ['Turno','Nombre_Turno','Id_Turno','IdTurno'];
+                const semestreCandidates = ['Semestre', 'Id_Semestre', 'IdSemestre'];
+                const findKey = (cands, sample) => {
+                    const keys = Object.keys(sample||{});
+                    for (let c of cands) if (keys.includes(c)) return c;
+                    const low = keys.reduce((a,k)=>{a[k.toLowerCase()]=k;return a;},{});
+                    for (let c of cands) if (low[c.toLowerCase()]) return low[c.toLowerCase()];
+                    return null;
+                };
+                const turnoKey = findKey(turnoCandidates, rows[0]);
+                const semestreKeyLocal = findKey(semestreCandidates, rows[0]);
+
+                // Contexto actual
+                const semestreActualId = parseInt(document.getElementById('semestre')?.value || '');
+                const semestreActualNombre = semestresMap[semestreActualId];
+                const turnoActualId = parseInt(document.getElementById('turno')?.value || '');
+                let turnoActualNombre = document.getElementById('turno-nombre')?.textContent || '';
+                if ((!turnoActualNombre || !turnoActualNombre.trim()) && Array.isArray(turnosDisponibles)) {
+                    const t = turnosDisponibles.find(x => parseInt(x.Id_Turno) === turnoActualId);
+                    if (t) turnoActualNombre = t.Turno;
                 }
-                console.log('📊 Total Grupos extraído del SP:', totalGrupos);
-                
+
+                // Filtrar filas por semestre y turno para obtener el total correcto del contexto
+                const filasContexto = rows.filter(r => {
+                    let semOK = true;
+                    if (semestreKeyLocal) {
+                        const v = r[semestreKeyLocal];
+                        const byName = String(v).toLowerCase() === String(semestreActualNombre).toLowerCase();
+                        const byId = !isNaN(parseInt(v)) && parseInt(v) === semestreActualId;
+                        semOK = byName || byId;
+                    }
+                    if (!semOK) return false;
+                    if (turnoKey) {
+                        const tv = r[turnoKey];
+                        const byNameT = String(tv).toLowerCase() === String(turnoActualNombre).toLowerCase();
+                        const byIdT = !isNaN(parseInt(tv)) && parseInt(tv) === turnoActualId;
+                        return byNameT || byIdT;
+                    }
+                    return true;
+                });
+
+                // Buscar 'salones' dentro del contexto filtrado
+                let totalGrupos = null;
+                for (const r of (filasContexto.length ? filasContexto : rows)) {
+                    if (r && Object.prototype.hasOwnProperty.call(r, 'salones')) { totalGrupos = r.salones; break; }
+                    if (r && Object.prototype.hasOwnProperty.call(r, 'Salones')) { totalGrupos = r.Salones; break; }
+                    if (r && Object.prototype.hasOwnProperty.call(r, 'SALONES')) { totalGrupos = r.SALONES; break; }
+                }
+                const totalGruposNum = (totalGrupos === null || totalGrupos === undefined || totalGrupos === '')
+                    ? 0
+                    : (isNaN(parseInt(totalGrupos)) ? 0 : parseInt(totalGrupos));
+
                 // Poblar el input
                 const totalGruposInput = document.getElementById('input-total-grupos');
                 if (totalGruposInput) {
-                    totalGruposInput.value = totalGrupos.toString();
-                    console.log('✅ Input Total Grupos poblado con valor:', totalGrupos);
-                } else {
-                    console.error('❌ No se encontró el input con ID "input-total-grupos"');
+                    totalGruposInput.value = String(totalGruposNum);
                 }
             }
             
@@ -648,6 +681,7 @@
             const sexoCandidates = ['Id_Sexo','IdSexo','Sexo','Genero','Nombre_Sexo'];
             const matriculaCandidates = ['Matricula','Total','Cantidad','Numero','Valor'];
             const semestreCandidates = ['Semestre', 'Id_Semestre', 'IdSemestre'];
+            const turnoCandidates = ['Turno','Nombre_Turno','Id_Turno','IdTurno'];
             
             console.log('Columnas disponibles en la primera fila:', Object.keys(rows[0]));
 
@@ -667,19 +701,42 @@
             const sexoKey = findKey(sexoCandidates);
             const matriculaKey = findKey(matriculaCandidates);
             const semestreKey = findKey(semestreCandidates);
+            const turnoKey = findKey(turnoCandidates);
+
+            // Determinar turno actual (nombre e id)
+            const turnoActualId = parseInt(document.getElementById('turno')?.value || '');
+            let turnoActualNombre = document.getElementById('turno-nombre')?.textContent || '';
+            if ((!turnoActualNombre || !turnoActualNombre.trim()) && Array.isArray(turnosDisponibles)) {
+                const t = turnosDisponibles.find(x => parseInt(x.Id_Turno) === turnoActualId);
+                if (t) turnoActualNombre = t.Turno;
+            }
 
             // FILTRAR: Solo procesar filas del semestre actual
             const rowsFiltradas = rows.filter(r => {
-                if (!semestreKey || !semestreActualNombre) return true; // Si no hay info de semestre, procesar todas
-                
-                const semestreRow = r[semestreKey];
-                const match = String(semestreRow).toLowerCase() === semestreActualNombre.toLowerCase();
-                
-                if (!match) {
-                    console.log(`⏭️ Saltando fila: Semestre "${semestreRow}" no coincide con "${semestreActualNombre}"`);
+                // Filtro por semestre
+                let semestreMatch = true;
+                if (semestreKey && semestreActualNombre) {
+                    const semestreRow = r[semestreKey];
+                    // Aceptar coincidencia por nombre o por id
+                    const byName = String(semestreRow).toLowerCase() === String(semestreActualNombre).toLowerCase();
+                    const byId = !isNaN(parseInt(semestreRow)) && parseInt(semestreRow) === semestreActualId;
+                    semestreMatch = byName || byId;
+                    if (!semestreMatch) {
+                        // console.log(`⏭️ Semestre no coincide (${semestreRow} vs ${semestreActualNombre}/${semestreActualId})`);
+                        return false;
+                    }
                 }
-                
-                return match;
+
+                // Filtro por turno (si la columna existe)
+                if (turnoKey) {
+                    const turnoRow = r[turnoKey];
+                    const byNameTurno = String(turnoRow).toLowerCase() === String(turnoActualNombre).toLowerCase();
+                    const byIdTurno = !isNaN(parseInt(turnoRow)) && parseInt(turnoRow) === turnoActualId;
+                    const turnoMatch = byNameTurno || byIdTurno;
+                    return semestreMatch && turnoMatch;
+                }
+
+                return semestreMatch;
             });
 
             console.log(`🔍 Filtrando: ${rows.length} filas totales → ${rowsFiltradas.length} filas del semestre "${semestreActualNombre}"`);
@@ -708,8 +765,16 @@
                     matricula: matriculaVal
                 });
 
-                const grupoId = String(grupoVal || '');
-                const grupoLabel = String(grupoVal || '');
+                // Normalizar grupo de edad: si SP trae ID, convertir a etiqueta usando gruposEdad
+                let grupoId = String(grupoVal || '');
+                let grupoLabel = String(grupoVal || '');
+                const geByLabel = gruposEdad.find(g => String(g.Grupo_Edad) === String(grupoVal));
+                const geById = gruposEdad.find(g => String(g.Id_Grupo_Edad) === String(grupoVal));
+                const ge = geByLabel || geById || null;
+                if (ge) {
+                    grupoId = String(ge.Grupo_Edad);
+                    grupoLabel = String(ge.Grupo_Edad);
+                }
                 
                 // Determinar sexo: Hombre/M → M, Mujer/F → F
                 let sexo = 'M';
@@ -744,17 +809,19 @@
                 if (!edadMap[grupoId]) {
                     edadMap[grupoId] = {
                         grupoLabel: grupoLabel,
-                        'Nuevo Ingreso': { tipoId: '1', M: 0, F: 0 },
-                        'Reingreso': { tipoId: '2', M: 0, F: 0 },
-                        'Repetidores': { tipoId: '3', M: 0, F: 0 }
+                        'Nuevo Ingreso': { tipoId: '1', M: undefined, F: undefined },
+                        'Reingreso': { tipoId: '2', M: undefined, F: undefined },
+                        'Repetidores': { tipoId: '3', M: undefined, F: undefined }
                     };
                 }
                 
-                // Asignar el valor de matrícula (incluyendo 0)
-                const v = parseInt(matriculaVal) || 0;
-                if (v >= 0) {
-                    edadMap[grupoId][tipoCategoria][sexo] = v;
-                    console.log(`🎯 Asignado: ${tipoCategoria} ${sexo} = ${v} (grupo ${grupoId})`);
+                // Asignar el valor de matrícula SOLO si es numérico (incluye 0 explícito)
+                const vNum = parseInt(matriculaVal);
+                if (!isNaN(vNum)) {
+                    edadMap[grupoId][tipoCategoria][sexo] = vNum;
+                    console.log(`🎯 Asignado: ${tipoCategoria} ${sexo} = ${vNum} (grupo ${grupoId})`);
+                } else {
+                    console.log(`⚪ Sin valor numérico para ${tipoCategoria} ${sexo} en grupo ${grupoId}`);
                 }
             });
 
@@ -870,11 +937,13 @@
                     const datos = edadData[tipoCategoria];
                     const tipoId = datos.tipoId;
 
-                    // Obtener valores del SP
-                    const valorM = datos.M || 0;
-                    const valorF = datos.F || 0;
+                    // Obtener valores del SP (preservar vacío vs cero explícito)
+                    const valorM = (datos.M === undefined || datos.M === null || datos.M === '') ? '' : String(datos.M);
+                    const valorF = (datos.F === undefined || datos.F === null || datos.F === '') ? '' : String(datos.F);
                     
-                    console.log(`🎯 Generando inputs: ${tipoCategoria} - Grupo "${grupoValor}" (ID:${grupoIdBD}) - M:${valorM}, F:${valorF}`);
+                    console.log(`🎯 Generando inputs: ${tipoCategoria} - Grupo "${grupoValor}" (ID:${grupoIdBD})`);
+                    console.log(`   - valorM: ${valorM} (tipo: ${typeof valorM}, isNaN: ${isNaN(valorM)})`);
+                    console.log(`   - valorF: ${valorF} (tipo: ${typeof valorF}, isNaN: ${isNaN(valorF)})`);
                     
                     tdTipo.innerHTML = `
                     <div style="display:inline-flex; gap:6px; justify-content:center; align-items:center; width:auto;">
@@ -883,7 +952,7 @@
                             <div style="font-weight:700;color:#1976d2;font-size:11px;min-width:14px;text-align:center;">H</div>
                             <input type="number" 
                                 id="input_${tipoId}_${grupoIdBD}_M" 
-                                value="${valorM >= 0 ? valorM : ''}" 
+                                value="${valorM}" 
                                 min="0" 
                                 class="input-matricula-nueva" 
                                 data-tipo-ingreso="${tipoId}" 
@@ -897,7 +966,7 @@
                             <div style="font-weight:700;color:#c2185b;font-size:11px;min-width:14px;text-align:center;">M</div>
                             <input type="number" 
                                 id="input_${tipoId}_${grupoIdBD}_F" 
-                                value="${valorF >= 0 ? valorF : ''}" 
+                                value="${valorF}" 
                                 min="0" 
                                 class="input-matricula-nueva" 
                                 data-tipo-ingreso="${tipoId}" 
@@ -1459,10 +1528,8 @@
             if (datosDelSemestre[key] !== undefined) {
                 // Si hay datos guardados, restaurarlos
                 input.value = datosDelSemestre[key];
-            } else if (tieneDatosGuardados) {
-                // Solo limpiar si había datos guardados pero esta clave no existe
-                // (significa que el usuario lo dejó vacío intencionalmente)
-                input.value = '';
+            } else {
+                // Si no hay dato guardado para esta clave, conservar el valor ya pintado (del SP)
             }
             // Si NO hay datos guardados, NO hacer nada (conservar valores del SP)
         });
@@ -1715,7 +1782,7 @@
     function limpiarFormulario() {
         const inputs = document.querySelectorAll('input.input-matricula-nueva');
         inputs.forEach(input => {
-            input.value = ' ';
+            input.value = '';
             // Quitar marcador de auto-rellenado
             input.removeAttribute('data-auto-filled');
         });
