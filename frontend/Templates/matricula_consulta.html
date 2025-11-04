@@ -211,6 +211,42 @@
             <button type="button" class="btn-success" onclick="validarCapturaSemestre()">
                 ✅ Validar y Finalizar Captura
             </button>
+            <button type="button" class="btn-info" onclick="toggleInformePanel()">
+                📈 Ver Informe de Guardado
+            </button>
+        </div>
+    </div>
+    <div id="informe-panel" class="informe-container" style="display:none;">
+        <h3 style="text-align:center; color:#6e0343;">Informe de Guardado</h3>
+        <div class="informe-grid">
+            <div class="informe-section">
+                <h4>Totales Por tipo de Ingreso</h4>
+                <table id="informe-tipo-ingreso-table">
+                    <thead>
+                        <tr>
+                            <th>Concepto</th>
+                            <th>Hombres</th>
+                            <th>Mujeres</th>
+                            <th>Total</th> 
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="informe-section">
+                <h4>Totales Por Grupo de Edad</h4>
+                <table id="informe-grupo-edad-table">
+                    <thead>
+                        <tr>
+                            <th>Grupo de Edad</th>
+                            <th>Hombres</th>
+                            <th>Mujeres</th>
+                            <th>Total</th> 
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -1095,6 +1131,7 @@
         if (typeof actualizarColoresPestanas === 'function') {
             actualizarColoresPestanas();
         }
+        actualizarInforme();
     }
 
     // Función para generar tabla vacía con estructura basada en grupos de edad del backend
@@ -2264,6 +2301,118 @@
             updateBtn.textContent = originalText;
             updateBtn.disabled = false;
         });
+    }
+    function toggleInformePanel() {
+        const panel = document.getElementById('informe-panel');
+        if(!panel) return;
+        if (panel.style.display === 'none' || panel.style.display === '') {
+            panel.style.display = 'block';
+        } else {
+            panel.style.display = 'none';
+        }
+    }
+    // ¡Nombre corregido a actualizarInforme!
+    function actualizarInforme() {
+        const inputs = document.querySelectorAll('input.input-matricula-nueva');
+
+        // 1. Estructura de totales (usando IDs como clave para que coincida con data-tipo-ingreso)
+        const totalesTipoIngreso = {
+            '1': { M: 0, F: 0, label: 'Nuevo Ingreso' },
+            '2': { M: 0, F: 0, label: 'Reingreso' },
+            '3': { M: 0, F: 0, label: 'Repetidores' }
+        };
+        
+        // Almacenará { 'id_grupo_edad': { M: 0, F: 0, label: '18', sortKey: 18 } }
+        const totalesGrupoEdad = {};
+
+        // PASO 1: Recolectar y sumar los datos
+        inputs.forEach(input => {
+            const valor = parseInt(input.value) || 0;
+            const tipoIngresoId = input.getAttribute('data-tipo-ingreso');
+            const grupoEdadId = input.getAttribute('data-grupo-edad');
+            const sexo = input.getAttribute('data-sexo'); // 'M' o 'F'
+
+            // 2. Sumar por tipo de ingreso (ahora funciona)
+            if (totalesTipoIngreso[tipoIngresoId]) {
+                totalesTipoIngreso[tipoIngresoId][sexo] += valor;
+            }
+
+            // 3. Sumar por grupo de edad (corregido)
+            if (!totalesGrupoEdad[grupoEdadId]) {
+                // Si el grupo de edad no existe, lo inicializamos
+                // Obtenemos la etiqueta de la primera celda (Edad) en la fila del input
+                const label = input.closest('tr').querySelector('td:first-child').textContent;
+                
+                // Extraemos una clave numérica para ordenar (ej. '18' de '18', '<18' es 0)
+                let sortKey = 99;
+                if (label.startsWith('<')) {
+                    sortKey = 0;
+                } else if (label.startsWith('>')) {
+                    sortKey = 999;
+                } else {
+                    sortKey = parseInt(label.match(/\d+/)) || 99;
+                }
+
+                totalesGrupoEdad[grupoEdadId] = { M: 0, F: 0, label: label, sortKey: sortKey };
+            }
+            
+            // Sumamos el valor
+            totalesGrupoEdad[grupoEdadId][sexo] += valor;
+        });
+
+        // PASO 2: Renderizar las tablas (FUERA del bucle forEach)
+
+        // 4. Renderizar tabla TIPO DE INGRESO
+        const tablaTipoBody = document.querySelector('#informe-tipo-ingreso-table tbody');
+        if (tablaTipoBody) {
+            let htmlTipo = '';
+            for (const key in totalesTipoIngreso) {
+                const data = totalesTipoIngreso[key];
+                const totalFila = data.M + data.F;
+                
+                // Opcional: solo mostrar filas que tengan datos
+                if (totalFila > 0) {
+                    htmlTipo += `<tr>
+                        <td>${data.label}</td>
+                        <td>${data.M}</td>
+                        <td>${data.F}</td>
+                        <td>${totalFila}</td>
+                    </tr>`;
+                }
+            }
+            tablaTipoBody.innerHTML = htmlTipo || '<tr><td colspan="4">Sin datos</td></tr>';
+        } else {
+            console.error("No se encontró el tbody de informe-tipo-ingreso-table");
+        }
+
+        // 5. Renderizar tabla GRUPO DE EDAD
+        const tablaEdadBody = document.querySelector('#informe-grupo-edad-table tbody');
+        if (tablaEdadBody) {
+            let htmlEdad = '';
+
+            // 6. Ordenar los grupos de edad usando la 'sortKey' que creamos
+            const edadesOrdenadas = Object.values(totalesGrupoEdad).sort((a, b) => {
+                return a.sortKey - b.sortKey;
+            });
+
+            // 7. Generar el HTML
+            edadesOrdenadas.forEach(data => {
+                const totalFila = data.M + data.F;
+                // Opcional: solo mostrar filas que tengan datos
+                if (totalFila > 0) {
+                    htmlEdad += `<tr>
+                        <td>${data.label}</td>
+                        <td>${data.M}</td>
+                        <td>${data.F}</td>
+                        <td>${totalFila}</td>
+                    </tr>`;
+                }
+            });
+            
+            tablaEdadBody.innerHTML = htmlEdad || '<tr><td colspan="4">Sin datos</td></tr>';
+        } else {
+            console.error("No se encontró el tbody de informe-grupo-edad-table");
+        }
     }
 </script>
 {% endblock %}
