@@ -205,8 +205,8 @@
             <button type="button" class="btn-secondary" onclick="limpiarFormulario()">
                 🧹 Limpiar Formulario
             </button>
-            <button type="button" class="btn-success" onclick="validarCapturaSemestre()">
-                ✅ Validar y Finalizar Captura
+            <button id="btn-validar-matricula" type="button" class="btn-success" onclick="validarCapturaSemestre()">
+                ✅ Validar Matrícula
             </button>
             <button type="button" class="btn-info" onclick="toggleInformePanel()">
                 📈 Ver Informe de Guardado
@@ -1124,6 +1124,8 @@
         }, 100); // Pequeño delay para asegurar que los inputs estén renderizados
 
         calcularTotales();
+        // Si el semestre actual ya fue finalizado (semaforo=3), bloquear edición
+        aplicarBloqueoPorSemaforo();
     }
 
     function calcularTotales() {
@@ -1693,6 +1695,30 @@
         });
         
         console.log(`🚫 Inputs actualizados para Semestre ${semestreNum}: ${document.querySelectorAll('.input-disabled').length} deshabilitados`);
+    }
+
+    // Deshabilita todos los inputs de la vista (incluye Total Grupos)
+    function deshabilitarTodaLaVista() {
+        const inputs = document.querySelectorAll('input.input-matricula-nueva');
+        inputs.forEach(input => {
+            input.disabled = true;
+            input.classList.add('input-disabled');
+        });
+        const totalGruposInput = document.getElementById('input-total-grupos');
+        if (totalGruposInput) {
+            totalGruposInput.disabled = true;
+            totalGruposInput.classList.add('input-disabled');
+        }
+        console.log('🔒 Vista de captura bloqueada: todos los inputs deshabilitados');
+    }
+
+    // Si el semáforo del semestre actual está en 3 (completado), bloquear edición
+    function aplicarBloqueoPorSemaforo() {
+        const semestreActual = parseInt(document.getElementById('semestre').value);
+        const estado = estadosSemaforoPorSemestre[semestreActual];
+        if (parseInt(estado) === 3) {
+            deshabilitarTodaLaVista();
+        }
     }
 
     function guardarMatricula() {
@@ -2295,6 +2321,8 @@
                 
                 if (estadoVerificado === 3) {
                     console.log('🟢 Confirmación: Semestre marcado como COMPLETADO en la base de datos');
+                    // Bloquear toda la edición en la vista al finalizar captura
+                    deshabilitarTodaLaVista();
                 } else {
                     console.warn(`⚠️ Advertencia: Estado del semestre es ${estadoVerificado}, no 3 (completado)`);
                 }

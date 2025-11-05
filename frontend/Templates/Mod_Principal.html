@@ -20,14 +20,23 @@
         <div class="botones-menu">
             <button id="Btn_Catalogos" class="btn-menu">Catálogos</button>
             <button id="Btn_Matricula" class="btn-menu">Captura de Matrícula</button>
+            <button id="Btn_Dashboard" class="btn-menu">DashBoard SAE</button>
         </div>
         <script>
+            // Navegar a la página de catálogos
             document.getElementById('Btn_Catalogos').addEventListener('click', function() {
                 window.location.href = '/usuarios/';
             });
-            
+            // Navegar a la página de captura de matrícula
             document.getElementById('Btn_Matricula').addEventListener('click', function() {
                 window.location.href = '/matricula/consulta';
+            });
+
+            // Abrir el dashboard externo de Power BI
+            document.getElementById('Btn_Dashboard').addEventListener('click', function() {
+                const url = 'https://app.powerbi.com/links/cnsvi3jDc1?ctid=f94bf4d9-8097-4794-adf6-a5466ca28563&pbi_source=linkShare';
+                // Abrir en una nueva pestaña para no cerrar la aplicación
+                window.open(url, '_blank', 'noopener');
             });
         </script>
     </div>
