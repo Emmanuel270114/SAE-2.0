@@ -17,15 +17,6 @@
         </form>
     </div>
 
-
-
-    
-
-
-
-    
-
-
     <!--  Filtro por Unidad Académica -->
     <div class="filtro-ua-box">
         <label for="filtro-ua">Filtrar por Unidad Académica:</label>
@@ -37,56 +28,37 @@
         </select>
     </div>
 
-<div style="
-    max-height: 400px;        /* Altura máxima visible */
-    overflow-y: auto;         /* Scroll vertical */
-    overflow-x: auto;         /* Scroll horizontal si se necesita */
-    border: 1px solid #ccc;   /* Borde sutil */
-    border-radius: 6px;
-    margin-top: 15px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    background-color: #f4f4f4; /* 🔹 Igual que el thead */
-">
-    <table id="tabla-domicilios" style="
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.9em;      /* Más compacto */
-        background-color: white; /* 🔹 Fondo uniforme de tabla */
-    ">
-        <thead style="
-            position: sticky;
-            top: 0;
-            background-color: #f4f4f4;
-            z-index: 1;
-        ">
+<div class="table-container">
+    <table id="tabla-domicilios">
+        <thead>
             <tr>
-                <th style="padding: 6px;">Sigla</th>
-                <th style="padding: 6px;">Nombre</th>
-                <th style="padding: 6px;">Clave</th>
-                <th style="padding: 6px;">Director</th>
-                <th style="padding: 6px;">Rama</th>
-                <th style="padding: 6px;">Calle</th>
-                <th style="padding: 6px;">Colonia</th>
-                <th style="padding: 6px;">C.P.</th>
-                <th style="padding: 6px;">Localidad</th>
-                <th style="padding: 6px;">Municipio</th>
-                <th style="padding: 6px;">Entidad</th>
+                <th>Sigla</th>
+                <th>Nombre</th>
+                <th>Clave</th>
+                <th>Director</th>
+                <th>Rama</th>
+                <th>Calle</th>
+                <th>Colonia</th>
+                <th>C.P.</th>
+                <th>Localidad</th>
+                <th>Municipio</th>
+                <th>Entidad</th>
             </tr>
         </thead>
         <tbody>
             {% for d in domicilios %}
-            <tr class="fila-usuario" style="border-top: 1px solid #ddd;">
-                <td style="padding: 4px;">{{ d.Sigla }}</td>
-                <td style="padding: 4px;">{{ d.Nombre }}</td>
-                <td style="padding: 4px;">{{ d.Clave }}</td>
-                <td style="padding: 4px;">{{ d.Director }}</td>
-                <td style="padding: 4px;">{{ d.Nombre_Rama }}</td>
-                <td style="padding: 4px;">{{ d.Calle }}</td>
-                <td style="padding: 4px;">{{ d.Colonia }}</td>
-                <td style="padding: 4px;">{{ d.CP }}</td>
-                <td style="padding: 4px;">{{ d.Nombre_Localidad }}</td>
-                <td style="padding: 4px;">{{ d.Nombre_Municipio }}</td>
-                <td style="padding: 4px;">{{ d.Nombre_Entidad }}</td>
+            <tr class="fila-usuario" >
+                <td>{{ d.Sigla }}</td>
+                <td>{{ d.Nombre }}</td>
+                <td>{{ d.Clave }}</td>
+                <td>{{ d.Director }}</td>
+                <td>{{ d.Nombre_Rama }}</td>
+                <td>{{ d.Calle }}</td>
+                <td>{{ d.Colonia }}</td>
+                <td>{{ d.CP }}</td>
+                <td>{{ d.Nombre_Localidad }}</td>
+                <td>{{ d.Nombre_Municipio }}</td>
+                <td>{{ d.Nombre_Entidad }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -100,10 +72,6 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="/static/js/utils.js"></script>
-    <script src="/static/js/filters.js"></script>
-    <script src="/static/js/modal.js"></script>
-    <script src="/static/js/user_form.js"></script>
 
     <script>
     document.addEventListener("DOMContentLoaded", function() {
