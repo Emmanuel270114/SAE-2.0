@@ -25,47 +25,44 @@
         <form id="registroUA">
             <div class="form-row">
                 <div class="form-group">
-                    <label for="nombre">Nombre(s)</label>
-                    <input type="text" id="nombre" name="nombre" placeholder="Nombre(s)" required class="input-form">
+                    <label for="sigla">Sigla</label>
+                    <input type="text" id="sigla" name="sigla" placeholder="Sigla" required class="input-form">
                 </div>
                 <div class="form-group">
-                    <label for="ap_pat">Apellido Paterno</label>
-                    <input type="text" id="ap_pat" name="paterno" placeholder="Apellido Paterno" required class="input-form">
+                    <label for="nombreUA">Nombre</label>
+                    <input type="text" id="nombreUA" name="nombre" placeholder="Nombre Unidad Academica" required class="input-form">
                 </div>
                 <div class="form-group">
-                    <label for="ap_mat">Apellido Materno</label>
-                    <input type="text" id="ap_mat" name="materno" placeholder="Apellido Materno" required class="input-form">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="email">Correo Electrónico</label>
-                    <input type="email" id="email" name="email" placeholder="Correo Electrónico" required oninput="sugerirUsuario()" class="input-form">
-                </div>
-                <div class="form-group">
-                    <label for="usuario">Usuario</label>
-                    <input type="text" id="usuario" name="usuario" placeholder="Usuario Sugerido" required readonly class="input-form input-readonly">
+                    <label for="claveUA">Clave</label>
+                    <input type="text" id="claveUA" name="clave" placeholder="Clave" required class="input-form">
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label for="password">Contraseña</label>
-                    <input type="password" id="password" name="password" placeholder="Contraseña (mínimo 8 caracteres)" minlength="8" required class="input-form">
+                    <label for="colonia">Colonia</label>
+                    <input type="text" id="colonia" name="colonia" placeholder="Colonia"  class="input-form">
                 </div>
                 <div class="form-group">
-                    <label for="id_unidad_academica">Unidad Académica</label>
-                    
+                    <label for="cp">C.P.</label>
+                    <input type="text" id="cp" name="cp" placeholder="Codigo Postal" required readonly class="input-form">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="localidad">Localidad</label>
+                    <select type="text" id="localidad" name="localidad" placeholder="Localidad"  class="input-form">
+            
                 </div>
                 <div class="form-group">
-                    <label for="id_rol">Rol</label>
-                    <select id="id_rol" name="id_rol" required class="input-form" title="Selecciona el rol">
+                    <label for="municipio">Municipio</label>
+                    <select id="municipio" name="municipio" placeholder="Municipio"  class="input-form">
                        
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="id_nivel">Nivel</label>
-                    <select id="id_nivel" name="id_nivel" required class="input-form" title="Selecciona el nivel">
-                        
+                    <label for="entidad">Entidad</label>
+                    <select id="entidad" name="entidad" placeholder="Entidad"  class="input-form">
+                       
                     </select>
                 </div>
             </div>
