@@ -20,6 +20,8 @@ def domicilios_view(
     Vista para consultar los domicilios mediante un Stored Procedure.
     """
     UUsuario = request.cookies.get("nombre_usuario", "")
+    Rol = str(request.cookies.get("nombre_rol",""))
+
     try:
         # Ejecutar el Stored Procedure con parámetros nombrados
         query = text("""
@@ -47,6 +49,7 @@ def domicilios_view(
         "catalogos/domicilios.html",
         {
             "request": request,
-            "domicilios": data
+            "domicilios": data,
+            "rol": Rol
         }
     )

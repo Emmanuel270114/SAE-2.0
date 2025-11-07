@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="/static/css/components/header.css">
     <link rel="stylesheet" href="/static/css/components/filters.css">
     <link rel="stylesheet" href="/static/css/components/tables.css">
+    <link rel="stylesheet" href="/static/css/components/forms.css">
 {% endblock %}
 
 {% block content %}
@@ -18,12 +19,76 @@
     </div>
 
 
+     <!-- Formulario de registro/edición de usuarios -->
+    {% if rol == 'Administrador' %}
+    <div class="registro-container">
+        <h3 id="titulo-usuario">Registro Unidad Academica</h3>
+        <form id="registroUA">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="sigla">Sigla</label>
+                    <input type="text" id="sigla" name="sigla" placeholder="Sigla" required class="input-form">
+                </div>
+                <div class="form-group">
+                    <label for="nombreUA">Nombre</label>
+                    <input type="text" id="nombreUA" name="nombre" placeholder="Nombre" required class="input-form">
+                </div>
+                <div class="form-group">
+                    <label for="claveUA">Clave</label>
+                    <input type="text" id="claveUA" name="clave" placeholder="Clave" required class="input-form">
+                </div>
+            </div>
+            <div class="form-row">
+                  <div class="form-group">
+                    <label for="director">Director</label>
+                    <input type="text" id="director" name="director" placeholder="Director/a"  class="input-form">
+                </div>
+                <div class="form-group">
+                    <label for="rama">Rama</label>
+                    <input type="text" id="rama" name="rama" placeholder="Rama" required readonly class="input-form">
+                </div>  
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="calle">Calle</label>
+                    <input type="text" id="calle" name="calle" placeholder="Calle"  class="input-form">
+                </div>
+                <div class="form-group">
+                    <label for="colonia">Colonia</label>
+                    <input type="text" id="colonia" name="colonia" placeholder="Colonia"  class="input-form">
+                </div>
+                <div class="form-group">
+                    <label for="cp">C.P.</label>
+                    <input type="text" id="cp" name="cp" placeholder="Codigo Postal" required readonly class="input-form">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="localidad">Localidad</label>
+                    <input type="text" id="localidad" name="localidad" placeholder="Localidad" required readonly class="input-form">
+                </div>
 
-    
-
-
-
-    
+                <div class="form-group">
+                    <label for="municipio">Municipio</label>
+                    <input type="text" id="municipio" name="municipio" placeholder="Municipio" required readonly class="input-form">
+                </div>
+                
+                <div class="form-group">
+                    <label for="entidad">Entidad</label>
+                    <input type="text" id="entidad" name="entidad" placeholder="Entidad" required readonly class="input-form">
+                </div>
+            </div>
+            <input type="hidden" id="id_usuario" name="id_usuario">
+            <div class="form-row">
+                <button type="submit" id="btn-guardar">Registrar</button>
+                <button type="button" id="btn-cancelar">Cancelar</button>
+                <button type="button" id="btn-limpiar">Limpiar</button>
+                <button type="button" id="btn-eliminar" style="display:none;">Eliminar</button>
+            </div>
+        </form>
+        <div id="mensaje"></div>
+    </div>
+    {% endif %}
 
 
     <!--  Filtro por Unidad Académica -->
@@ -37,56 +102,37 @@
         </select>
     </div>
 
-<div style="
-    max-height: 400px;        /* Altura máxima visible */
-    overflow-y: auto;         /* Scroll vertical */
-    overflow-x: auto;         /* Scroll horizontal si se necesita */
-    border: 1px solid #ccc;   /* Borde sutil */
-    border-radius: 6px;
-    margin-top: 15px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    background-color: #f4f4f4; /* 🔹 Igual que el thead */
-">
-    <table id="tabla-domicilios" style="
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.9em;      /* Más compacto */
-        background-color: white; /* 🔹 Fondo uniforme de tabla */
-    ">
-        <thead style="
-            position: sticky;
-            top: 0;
-            background-color: #f4f4f4;
-            z-index: 1;
-        ">
+<div class="table-container">
+    <table id="tabla-domicilios">
+        <thead>
             <tr>
-                <th style="padding: 6px;">Sigla</th>
-                <th style="padding: 6px;">Nombre</th>
-                <th style="padding: 6px;">Clave</th>
-                <th style="padding: 6px;">Director</th>
-                <th style="padding: 6px;">Rama</th>
-                <th style="padding: 6px;">Calle</th>
-                <th style="padding: 6px;">Colonia</th>
-                <th style="padding: 6px;">C.P.</th>
-                <th style="padding: 6px;">Localidad</th>
-                <th style="padding: 6px;">Municipio</th>
-                <th style="padding: 6px;">Entidad</th>
+                <th>Sigla</th>
+                <th>Nombre</th>
+                <th>Clave</th>
+                <th>Director</th>
+                <th>Rama</th>
+                <th>Calle</th>
+                <th>Colonia</th>
+                <th>C.P.</th>
+                <th>Localidad</th>
+                <th>Municipio</th>
+                <th>Entidad</th>
             </tr>
         </thead>
         <tbody>
             {% for d in domicilios %}
-            <tr class="fila-usuario" style="border-top: 1px solid #ddd;">
-                <td style="padding: 4px;">{{ d.Sigla }}</td>
-                <td style="padding: 4px;">{{ d.Nombre }}</td>
-                <td style="padding: 4px;">{{ d.Clave }}</td>
-                <td style="padding: 4px;">{{ d.Director }}</td>
-                <td style="padding: 4px;">{{ d.Nombre_Rama }}</td>
-                <td style="padding: 4px;">{{ d.Calle }}</td>
-                <td style="padding: 4px;">{{ d.Colonia }}</td>
-                <td style="padding: 4px;">{{ d.CP }}</td>
-                <td style="padding: 4px;">{{ d.Nombre_Localidad }}</td>
-                <td style="padding: 4px;">{{ d.Nombre_Municipio }}</td>
-                <td style="padding: 4px;">{{ d.Nombre_Entidad }}</td>
+            <tr class="fila-usuario" >
+                <td>{{ d.Sigla }}</td>
+                <td>{{ d.Nombre }}</td>
+                <td>{{ d.Clave }}</td>
+                <td>{{ d.Director }}</td>
+                <td>{{ d.Nombre_Rama }}</td>
+                <td>{{ d.Calle }}</td>
+                <td>{{ d.Colonia }}</td>
+                <td>{{ d.CP }}</td>
+                <td>{{ d.Nombre_Localidad }}</td>
+                <td>{{ d.Nombre_Municipio }}</td>
+                <td>{{ d.Nombre_Entidad }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -100,10 +146,6 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="/static/js/utils.js"></script>
-    <script src="/static/js/filters.js"></script>
-    <script src="/static/js/modal.js"></script>
-    <script src="/static/js/user_form.js"></script>
 
     <script>
     document.addEventListener("DOMContentLoaded", function() {

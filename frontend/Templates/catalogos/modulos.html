@@ -18,31 +18,19 @@
     </div>
 
 
-    <div style="
-    max-height: 400px;       /* Altura máxima visible */
-    overflow-y: auto;        /* Scroll vertical */
-    overflow-x: auto;        /* Scroll horizontal si se necesita */
-    border: 1px solid #ccc;  /* Borde sutil */
-    border-radius: 6px;
-    margin-top: 15px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-">
-    <table id="tabla-domicilios" style="
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.9em; /* Más compacto */
-    ">
-        <thead style="position: sticky; top: 0; background-color: #f4f4f4; z-index: 1;">
+    <div class="table-container">
+    <table id="tabla-domicilios">
+        <thead>
             <tr>
-                <th style="padding: 6px;">Modulos Existentes</th>
-                <th style="padding: 6px;">Observaciones</th>
+                <th>Modulos Existentes</th>
+                <th>Observaciones</th>
             </tr>
         </thead>
         <tbody>
             {% for m in modulos %}
-            <tr class="fila-usuario" style="border-top: 1px solid #ddd;">
-                <td style="padding: 4px;">{{ m.Modulo }}</td>
-                <td style="padding: 4px;">{{ m.Observaciones }}</td>
+            <tr class="fila-usuario">
+                <td>{{ m.Modulo }}</td>
+                <td>{{ m.Observaciones }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -54,10 +42,5 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="/static/js/utils.js"></script>
-    <script src="/static/js/filters.js"></script>
-    <script src="/static/js/modal.js"></script>
-    <script src="/static/js/user_form.js"></script>
-
 
 {% endblock %}

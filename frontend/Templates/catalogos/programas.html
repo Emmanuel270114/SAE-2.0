@@ -31,36 +31,25 @@
     </div>
 
     <!-- 🔹 Tabla de programas -->
-    <div style="
-        max-height: 400px;
-        overflow-y: auto;
-        border: 1px solid #ccc;
-        border-radius: 6px;
-        margin-top: 15px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    ">
-        <table id="tabla-programas" style="
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9em;
-        ">
-            <thead style="position: sticky; top: 0; background-color: #f4f4f4; z-index: 1;">
+    <div class="table-container">
+        <table id="tabla-programas">
+            <thead>
                 <tr>
-                    <th style="padding: 6px;">Nombre Programa</th>
-                    <th style="padding: 6px;">Nivel</th>
-                    <th style="padding: 6px;">Nombre Rama</th>
-                    <th style="padding: 6px;">Semestre</th>
-                    <th style="padding: 6px;">Descripción</th>
+                    <th>Nombre Programa</th>
+                    <th>Nivel</th>
+                    <th>Nombre Rama</th>
+                    <th>Semestre</th>
+                    <th>Descripción</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in programas %}
-                <tr class="fila-programa" style="border-top: 1px solid #ddd;">
-                    <td style="padding: 4px;">{{ p.Nombre_Programa }}</td>
-                    <td style="padding: 4px;">{{ p.Nivel }}</td>
-                    <td style="padding: 4px;">{{ p.Nombre_Rama }}</td>
-                    <td style="padding: 4px;">{{ p.Semestre }}</td>
-                    <td style="padding: 4px;">{{ p.Descripcion }}</td>
+                <tr class="fila-programa">
+                    <td>{{ p.Nombre_Programa }}</td>
+                    <td>{{ p.Nivel }}</td>
+                    <td>{{ p.Nombre_Rama }}</td>
+                    <td>{{ p.Semestre }}</td>
+                    <td>{{ p.Descripcion }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

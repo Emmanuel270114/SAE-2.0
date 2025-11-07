@@ -33,30 +33,19 @@
 
 
     <!-- 🔹 Tabla de periodos -->
-    <div style="
-        max-height: 400px;
-        overflow-y: auto;
-        border: 1px solid #ccc;
-        border-radius: 6px;
-        margin-top: 15px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    ">
-        <table id="tabla-periodos" style="
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9em;
-        ">
-            <thead style="position: sticky; top: 0; background-color: #f4f4f4; z-index: 1;">
+    <div class="table-container">
+        <table id="tabla-periodos">
+            <thead>
                 <tr>
-                    <th style="padding: 6px;">Periodo</th>
-                    <th style="padding: 6px;">Descripción</th>
+                    <th>Periodo</th>
+                    <th>Descripción</th>
                 </tr>
             </thead>
             <tbody>
                 {% for d in periodos %}
-                <tr class="fila-periodo" style="border-top: 1px solid #ddd;">
-                    <td style="padding: 4px;">{{ d.Periodo }}</td>
-                    <td style="padding: 4px;">{{ d.Descripcion }}</td>
+                <tr class="fila-periodo">
+                    <td>{{ d.Periodo }}</td>
+                    <td>{{ d.Descripcion }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -66,10 +55,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/utils.js"></script>
-<script src="/static/js/filters.js"></script>
-<script src="/static/js/modal.js"></script>
-<script src="/static/js/user_form.js"></script>
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {

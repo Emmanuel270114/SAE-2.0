@@ -13,13 +13,13 @@
 {% block content %}
 <div class="container">
     <div class="header-usuarios">
-        <div class="bienvenido">Bienvenido: {{ nombre_usuario }}</div>
+        <h2>Usuarios de la Unidad Académica: <br><br> {{ nombre_ua }}</h2>
         <form action="/mod_principal" method="get">
             <button type="submit" class="btn-volver">Regresar</button>
         </form>
     </div>
     
-    <h2>Usuarios de la Unidad Académica: <br><br> {{ nombre_ua }}</h2>
+    
 
     <!-- Formulario de usuario -->
     {% include 'components/user_form.html' %}
@@ -28,7 +28,10 @@
     {% include 'components/filters.html' %}
 
     <!-- Tabla de usuarios -->
+    <div  class="table-container">
     {% include 'components/user_table.html' %}
+    </div>
+    
 
     <!-- Modal de confirmación -->
     {% include 'components/modal_confirm.html' %}

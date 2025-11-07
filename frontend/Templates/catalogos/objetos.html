@@ -18,29 +18,17 @@
     </div>
 
 
-    <div style="
-    max-height: 400px;       /* Altura máxima visible */
-    overflow-y: auto;        /* Scroll vertical */
-    overflow-x: auto;        /* Scroll horizontal si se necesita */
-    border: 1px solid #ccc;  /* Borde sutil */
-    border-radius: 6px;
-    margin-top: 15px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-">
-    <table id="tabla-domicilios" style="
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.9em; /* Más compacto */
-    ">
-        <thead style="position: sticky; top: 0; background-color: #f4f4f4; z-index: 1;">
+    <div>
+    <table id="tabla-domicilios">
+        <thead>
             <tr>
-                <th style="padding: 6px;">Botones</th>
+                <th>Botones</th>
             </tr>
         </thead>
         <tbody>
             {% for o in objetos %}
-            <tr class="fila-usuario" style="border-top: 1px solid #ddd;">
-                <td style="padding: 4px;">{{ o.Objeto }}</td>
+            <tr class="fila-usuario">
+                <td>{{ o.Objeto }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -52,10 +40,5 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="/static/js/utils.js"></script>
-    <script src="/static/js/filters.js"></script>
-    <script src="/static/js/modal.js"></script>
-    <script src="/static/js/user_form.js"></script>
-
 
 {% endblock %}
