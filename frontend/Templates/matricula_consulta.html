@@ -16,6 +16,46 @@
              margin: 0;
              padding: 0;
         }
+        /* Estilos visuales para inputs bloqueados */
+        .input-matricula-nueva.input-disabled {
+            background-color: #f3f4f6 !important; /* gris claro */
+            color: #6b7280 !important;            /* gris medio */
+            border-color: #e5e7eb !important;
+            cursor: not-allowed !important;
+        }
+        /* Atenuar y desactivar interacción del contenedor cuando está bloqueado */
+        .matricula-box.input-container-disabled {
+            position: relative;
+            opacity: 0.6;
+            pointer-events: none; /* evita focus/click */
+        }
+        /* Tooltip simple usando el atributo data-tooltip */
+        .matricula-box.input-container-disabled:hover::after {
+            opacity: 0.95;
+        }
+        .matricula-box.input-container-disabled::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            top: -26px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #111827;
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+        /* Apariencia deshabilitada para Total Grupos */
+        #input-total-grupos.input-disabled {
+            background-color: #f3f4f6 !important;
+            color: #6b7280 !important;
+            border-color: #e5e7eb !important;
+            cursor: not-allowed !important;
+        }
     </style>
 {% endblock %}
 
@@ -171,8 +211,8 @@
             
             <!-- Input Total Grupos -->
             <div class="total-grupos-container" style="display: flex; justify-content: flex-end; margin-bottom: 10px; padding: 0 15px;">
-                <div style="display: flex; align-items: center; gap: 10px; background: #f8f9fa; padding: 8px 15px; border-radius: 6px; border: 1px solid #dee2e6;">
-                    <label for="input-total-grupos" style="font-weight: 600; color: #495057; margin: 0;">Total Grupos:</label>
+                <div style="display: flex; align-items: center; gap: 10px; background: #6e0343; padding: 8px 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                    <label for="input-total-grupos" style="font-weight: 600; color: #ffffff; margin: 0;">Total Grupos:</label>
                     <input type="number" 
                            id="input-total-grupos" 
                            class="input-total-grupos"
@@ -202,14 +242,14 @@
             <button id="btn-guardar-matricula" type="button" class="btn-primary" onclick="guardarYActualizarMatricula()">
                 💾 Guardar Matrícula
             </button>
-            <button type="button" class="btn-secondary" onclick="limpiarFormulario()">
+            <button id="btn-limpiar-formulario" type="button" class="btn-secondary" onclick="limpiarFormulario()">
                 🧹 Limpiar Formulario
             </button>
             <button id="btn-validar-matricula" type="button" class="btn-success" onclick="validarCapturaSemestre()">
                 ✅ Validar Matrícula
             </button>
-            <button type="button" class="btn-info" onclick="toggleInformePanel()">
-                📈 Ver Informe de Guardado
+            <button id="btn-ver-informe" type="button" class="btn-info" onclick="toggleInformePanel()">
+                📈 Ver Informe
             </button>
         </div>
     </div>
@@ -268,6 +308,61 @@
     console.log('📊 Tipos de ingreso disponibles:', tiposIngreso);
     console.log('📊 Semestres map:', semestresMap);
     console.log('📅 Periodo literal:', periodoLiteral);
+
+    // Mapa: Total Grupos por semestre (independiente por semestre, común a ambos turnos)
+    let totalGruposPorSemestre = {};
+
+    function generarClaveTotalGrupos() {
+        const periodo = document.getElementById('periodo').value;
+        const programa = document.getElementById('programa').value;
+        const modalidad = document.getElementById('modalidad').value;
+        // Nota: no incluimos turno porque el valor es por semestre, no por turno
+        return `totalgrupos_${periodo}_${programa}_${modalidad}`;
+    }
+
+    function cargarTotalGruposDeLocalStorage() {
+        try {
+            const key = generarClaveTotalGrupos();
+            const raw = localStorage.getItem(key);
+            totalGruposPorSemestre = raw ? JSON.parse(raw) : {};
+            if (typeof totalGruposPorSemestre !== 'object' || totalGruposPorSemestre === null) {
+                totalGruposPorSemestre = {};
+            }
+        } catch (e) {
+            console.warn('No se pudo cargar totalGruposPorSemestre de localStorage', e);
+            totalGruposPorSemestre = {};
+        }
+    }
+
+    function guardarTotalGruposEnLocalStorage() {
+        try {
+            const key = generarClaveTotalGrupos();
+            localStorage.setItem(key, JSON.stringify(totalGruposPorSemestre));
+        } catch (e) {
+            console.warn('No se pudo guardar totalGruposPorSemestre en localStorage', e);
+        }
+    }
+
+    function aplicarTotalGruposParaSemestreActual() {
+        const semestreActual = document.getElementById('semestre').value;
+        const inputTG = document.getElementById('input-total-grupos');
+        if (!inputTG) return;
+
+        // Valor guardado para este semestre
+        const valor = totalGruposPorSemestre[semestreActual];
+        inputTG.value = (valor !== undefined && valor !== null) ? valor : '';
+
+        // Bloquear sólo si el semáforo de este semestre está en 3
+        const estado = estadosSemaforoPorSemestre[parseInt(semestreActual)];
+        const debeBloquear = parseInt(estado) === 3;
+        inputTG.disabled = !!debeBloquear;
+        inputTG.classList.toggle('input-disabled', !!debeBloquear);
+        if (debeBloquear) {
+            inputTG.title = 'Semestre finalizado (bloqueado)';
+        } else {
+            inputTG.title = '';
+        }
+    }
 
     // Función para cargar datos existentes cuando cambien los filtros usando SP
     async function cargarDatosExistentes() {
@@ -544,7 +639,7 @@
             console.log('Número de rows:', rows.length);
             console.log('datosMap:', datosMap);
             
-            // EXTRAER Y POBLAR TOTAL GRUPOS
+            // EXTRAER Y POBLAR TOTAL GRUPOS (y sembrar mapa por semestre)
             if (rows && rows.length > 0) {
                 // Determinar columnas
                 const turnoCandidates = ['Turno','Nombre_Turno','Id_Turno','IdTurno'];
@@ -599,10 +694,25 @@
                     ? 0
                     : (isNaN(parseInt(totalGrupos)) ? 0 : parseInt(totalGrupos));
 
-                // Poblar el input
+                // Sembrar/actualizar almacén por semestre con el valor del SP
+                try {
+                    cargarTotalGruposDeLocalStorage();
+                    const prev = totalGruposPorSemestre[semestreActualId];
+                    const spHasValue = !isNaN(totalGruposNum);
+                    // Regla: si no hay valor previo o es 0 y el SP trae >0, o viene diferente, actualizar
+                    if (spHasValue && (prev === undefined || prev === null || (parseInt(prev) === 0 && totalGruposNum > 0) || parseInt(prev) !== totalGruposNum)) {
+                        totalGruposPorSemestre[semestreActualId] = totalGruposNum;
+                        guardarTotalGruposEnLocalStorage();
+                        console.log(`💾 Total Grupos (SP) para semestre ${semestreActualId}: ${totalGruposNum} (almacenado)`);
+                    }
+                } catch (e) { console.warn('No se pudo sembrar Total Grupos desde SP', e); }
+
+                // Poblar el input con el valor vigente del almacén (o el del SP si no hay)
                 const totalGruposInput = document.getElementById('input-total-grupos');
                 if (totalGruposInput) {
-                    totalGruposInput.value = String(totalGruposNum);
+                    const valorAlmacen = totalGruposPorSemestre[semestreActualId];
+                    const definitivo = (valorAlmacen !== undefined && valorAlmacen !== null) ? valorAlmacen : totalGruposNum;
+                    totalGruposInput.value = (definitivo !== undefined && definitivo !== null) ? String(definitivo) : '';
                 }
             }
             
@@ -1001,9 +1111,15 @@
                     const datos = edadData[tipoCategoria];
                     const tipoId = datos.tipoId;
 
-                    // Obtener valores del SP (preservar vacío vs cero explícito)
-                    const valorM = (datos.M === undefined || datos.M === null || datos.M === '') ? '' : String(datos.M);
-                    const valorF = (datos.F === undefined || datos.F === null || datos.F === '') ? '' : String(datos.F);
+                    // Obtener valores del SP (preservar cero explícito). Si el semestre está finalizado (3), mostrar 0 en ausentes
+                    const estadoSem = estadosSemaforoPorSemestre[parseInt(semestreActualId)];
+                    const mostrarCeroSiVacio = parseInt(estadoSem) === 3;
+                    const valorM = (datos.M === undefined || datos.M === null || datos.M === '') 
+                        ? (mostrarCeroSiVacio ? '0' : '') 
+                        : String(datos.M);
+                    const valorF = (datos.F === undefined || datos.F === null || datos.F === '') 
+                        ? (mostrarCeroSiVacio ? '0' : '') 
+                        : String(datos.F);
                     
                     console.log(`🎯 Generando inputs: ${tipoCategoria} - Grupo "${grupoValor}" (ID:${grupoIdBD})`);
                     console.log(`   - valorM: ${valorM} (tipo: ${typeof valorM}, isNaN: ${isNaN(valorM)})`);
@@ -1091,6 +1207,22 @@
             input.addEventListener('change', guardarDatosSemestreActual);
         });
 
+        // Bind para Total Grupos por semestre
+        const tgInput = document.getElementById('input-total-grupos');
+        if (tgInput && !tgInput.dataset.bound) {
+            tgInput.addEventListener('input', () => {
+                const semestreActual = document.getElementById('semestre').value;
+                totalGruposPorSemestre[semestreActual] = tgInput.value;
+                guardarTotalGruposEnLocalStorage();
+            });
+            tgInput.addEventListener('change', () => {
+                const semestreActual = document.getElementById('semestre').value;
+                totalGruposPorSemestre[semestreActual] = tgInput.value;
+                guardarTotalGruposEnLocalStorage();
+            });
+            tgInput.dataset.bound = '1';
+        }
+
         // Si se pasó un datosMap, poblar valores
         if (datosMap) {
             for (let key in datosMap) {
@@ -1123,9 +1255,12 @@
             }
         }, 100); // Pequeño delay para asegurar que los inputs estén renderizados
 
-        calcularTotales();
-        // Si el semestre actual ya fue finalizado (semaforo=3), bloquear edición
-        aplicarBloqueoPorSemaforo();
+    calcularTotales();
+    // Cargar Total Grupos del semestre y aplicar bloqueo si corresponde
+    cargarTotalGruposDeLocalStorage();
+    aplicarTotalGruposParaSemestreActual();
+    // Si el semestre actual ya fue finalizado (semaforo=3), bloquear edición
+    aplicarBloqueoPorSemaforo();
     }
 
     function calcularTotales() {
@@ -1640,6 +1775,10 @@
         
         // Recargar datos
         cargarDatosExistentes();
+        // Aplicar Total Grupos correspondiente después de que lleguen los datos
+        setTimeout(() => {
+            aplicarTotalGruposParaSemestreActual();
+        }, 150);
     }
 
     // Función que habilita/inhabilita inputs según el semestre seleccionado
@@ -1653,18 +1792,25 @@
 
             let shouldDisable = false;
             let tooltipMessage = '';
-
-            if (parseInt(semestreNum) === 1) {
-                // Bloquear Reingreso (tipo 2) en semestre 1
-                if (tipo === '2') {
-                    shouldDisable = true;
-                    tooltipMessage = 'Reingreso no aplica en Semestre 1';
-                }
+            // Si el semestre ya está finalizado (semaforo=3) deshabilitar TODOS preservando valores
+            const estadoSemaforo = estadosSemaforoPorSemestre[parseInt(semestreNum)];
+            if (parseInt(estadoSemaforo) === 3) {
+                shouldDisable = true;
+                tooltipMessage = 'Semestre finalizado';
             } else {
-                // En cualquier otro semestre, bloquear Nuevo Ingreso (tipo 1)
-                if (tipo === '1') {
-                    shouldDisable = true;
-                    tooltipMessage = `Nuevo Ingreso no aplica en Semestre ${semestreNum}`;
+                // Lógica anterior condicional (podría ajustarse o eliminarse si ya no aplica)
+                if (parseInt(semestreNum) === 1) {
+                    // Bloquear Reingreso (tipo 2) en semestre 1
+                    if (tipo === '2') {
+                        shouldDisable = true;
+                        tooltipMessage = 'Reingreso no aplica en Semestre 1';
+                    }
+                } else {
+                    // En cualquier otro semestre, bloquear Nuevo Ingreso (tipo 1)
+                    if (tipo === '1') {
+                        shouldDisable = true;
+                        tooltipMessage = `Nuevo Ingreso no aplica en Semestre ${semestreNum}`;
+                    }
                 }
             }
 
@@ -1672,7 +1818,10 @@
                 input.disabled = true;
                 input.classList.add('input-disabled');
                 input.title = tooltipMessage;
-                input.value = ''; // Limpiar valor si se deshabilita
+                // No limpiar el valor si es por semáforo finalizado, conservar lo traído del SP
+                if (tooltipMessage !== 'Semestre finalizado') {
+                    input.value = ''; // Sólo limpiar si es por regla de tipo ingreso
+                }
                 
                 // Agregar indicador visual al contenedor padre
                 const container = input.closest('.matricula-box');
@@ -1703,6 +1852,13 @@
         inputs.forEach(input => {
             input.disabled = true;
             input.classList.add('input-disabled');
+            const container = input.closest('.matricula-box');
+            if (container) {
+                container.classList.add('input-container-disabled');
+                if (!container.getAttribute('data-tooltip')) {
+                    container.setAttribute('data-tooltip', 'Semestre finalizado (bloqueado)');
+                }
+            }
         });
         const totalGruposInput = document.getElementById('input-total-grupos');
         if (totalGruposInput) {
@@ -1717,7 +1873,18 @@
         const semestreActual = parseInt(document.getElementById('semestre').value);
         const estado = estadosSemaforoPorSemestre[semestreActual];
         if (parseInt(estado) === 3) {
+            // Bloquear todos los inputs de matrícula (incluye ambos turnos conceptualmente porque se recrean por turno)
             deshabilitarTodaLaVista();
+            // Bloquear también el Total Grupos sólo de este semestre
+            aplicarTotalGruposParaSemestreActual();
+            // Deshabilitar botones de acción excepto informe
+            const btnGuardar = document.getElementById('btn-guardar-matricula');
+            const btnLimpiar = document.getElementById('btn-limpiar-formulario');
+            const btnValidar = document.getElementById('btn-validar-matricula');
+            const btnInforme = document.getElementById('btn-ver-informe');
+            [btnGuardar, btnLimpiar, btnValidar].forEach(b => { if (b) { b.disabled = true; b.classList.add('input-disabled'); }});
+            if (btnInforme) { btnInforme.disabled = false; btnInforme.classList.remove('input-disabled'); }
+            console.log('🛑 Semestre finalizado: botones Guardar/Limpiar/Validar deshabilitados, Informe activo.');
         }
     }
 
@@ -2101,9 +2268,11 @@
         // Obtener todos los inputs
         const inputs = document.querySelectorAll('input.input-matricula-nueva');
         
-        // PASO 1: Rellenar campos vacíos con '0'
+        // PASO 1: Rellenar campos vacíos con '0' SOLO en inputs habilitados
         let camposRellenados = 0;
         inputs.forEach(input => {
+            // No tocar inputs deshabilitados
+            if (input.disabled) return;
             if (!input.value || input.value.trim() === '') {
                 input.value = '0';
                 // Marcar como auto-rellenado
@@ -2122,6 +2291,8 @@
         let camposConCero = 0;
         
         inputs.forEach(input => {
+            // Ignorar inputs deshabilitados en el conteo/estadísticas
+            if (input.disabled) return;
             const valor = parseInt(input.value) || 0;
             totalDatos += valor;
             
@@ -2139,18 +2310,20 @@
         console.log(`   - Campos rellenados automáticamente: ${camposRellenados}`);
         
         // PASO 3: Confirmar con el usuario
-        let mensajeConfirmacion = `¿Desea validar y finalizar la captura del ${semestreNombre}?\n\n`;
-        mensajeConfirmacion += `📊 Campos con datos: ${camposConDatos}\n`;
-        mensajeConfirmacion += `📈 Total de estudiantes: ${totalDatos}\n`;
+    let mensajeConfirmacion = `¿Desea validar y finalizar la captura del ${semestreNombre}?\n\n`;
+    mensajeConfirmacion += `📊 Campos con datos (turno actual): ${camposConDatos}\n`;
+    mensajeConfirmacion += `📈 Total de estudiantes (turno actual): ${totalDatos}\n`;
         
         if (camposRellenados > 0) {
             mensajeConfirmacion += `\n✏️ Se rellenaron ${camposRellenados} campos vacíos con '0'\n`;
         }
         
-        mensajeConfirmacion += `\n⚠️ Esta acción:\n`;
-        mensajeConfirmacion += `• Guardará todos los datos en la base de datos (incluyendo ceros)\n`;
-        mensajeConfirmacion += `• Marcará el semestre como COMPLETADO (🟢)\n`;
-        mensajeConfirmacion += `• Registrará la validación en bitácora\n\n`;
+    mensajeConfirmacion += `\n⚠️ Esta acción:\n`;
+    mensajeConfirmacion += `• Guardará todos los datos del turno actual (rellenando vacíos con 0)\n`;
+    mensajeConfirmacion += `• Generará registros en CERO para el otro turno del mismo semestre si no tiene datos capturados\n`;
+    mensajeConfirmacion += `• Enviará el Total Grupos específico de este semestre (independiente)\n`;
+    mensajeConfirmacion += `• Marcará el semestre como COMPLETADO (🟢) y bloqueará ambos turnos\n`;
+    mensajeConfirmacion += `• Registrará la validación en bitácora\n\n`;
         mensajeConfirmacion += `¿Continuar?`;
         
         const confirmar = confirm(mensajeConfirmacion);
@@ -2188,6 +2361,9 @@
             // Obtener valor de Total Grupos
             const totalGruposInput = document.getElementById('input-total-grupos');
             const totalGrupos = totalGruposInput ? parseInt(totalGruposInput.value) || 0 : 0;
+            // Persistir Total Grupos en estructura por semestre
+            totalGruposPorSemestre[semestreActual] = totalGrupos;
+            guardarTotalGruposEnLocalStorage();
             
             // Preparar datos para guardar (igual que en guardarMatricula)
             const data = {
@@ -2232,7 +2408,7 @@
                 }
             });
             
-            console.log(`📤 Enviando ${Object.keys(data.datos_matricula).length} registros a la base de datos...`);
+            console.log(`📤 Enviando ${Object.keys(data.datos_matricula).length} registros a la base de datos (turno actual)...`);
             
             // Guardar datos en Temp_Matricula
             const saveResponse = await fetch('/matricula/guardar_captura_completa', {
@@ -2252,7 +2428,85 @@
                 return;
             }
             
-            console.log('✅ Datos guardados exitosamente en Temp_Matricula');
+            console.log('✅ Datos guardados exitosamente en Temp_Matricula (turno actual)');
+            // PASO 5.0: Generar y guardar datos en CERO para otros turnos del mismo semestre si no existen
+            const turnoActualId = parseInt(turno);
+            const otrosTurnos = (turnosDisponibles || []).filter(t => parseInt(t.Id_Turno) !== turnoActualId);
+            for (const t of otrosTurnos) {
+                // Verificar si ya tenemos datos guardados localmente para ese turno y semestre
+                const datosLocalTurno = (datosMatriculaPorSemestre[t.Id_Turno] || {})[semestreActual];
+                const yaTieneDatos = datosLocalTurno && Object.keys(datosLocalTurno).length > 0;
+                if (yaTieneDatos) {
+                    console.log(`↪️ Turno '${t.Turno}' (ID ${t.Id_Turno}) ya tiene datos locales, no se generan ceros.`);
+                    continue;
+                }
+                console.log(`🧩 Generando registros en cero para turno '${t.Turno}' (ID ${t.Id_Turno}) semestre ${semestreActual}`);
+                const dataCeros = {
+                    periodo: periodo,
+                    programa: programa,
+                    semestre: semestre,
+                    modalidad: modalidad,
+                    turno: t.Id_Turno,
+                    total_grupos: totalGrupos,
+                    datos_matricula: {}
+                };
+                // Construir combinaciones tipoIngreso x grupoEdad x sexo con valor 0
+                const sexos = ['M','F'];
+                let tiposFuente = tiposIngreso;
+                let gruposFuente = gruposEdad;
+                // Fallback si arrays aún no cargados
+                if (!tiposFuente || !tiposFuente.length) {
+                    console.warn('⚠️ tiposIngreso vacío al generar ceros; usando fallback [1,2,3]');
+                    tiposFuente = [
+                        { Id_Tipo_Ingreso: 1 },
+                        { Id_Tipo_Ingreso: 2 },
+                        { Id_Tipo_Ingreso: 3 }
+                    ];
+                }
+                if (!gruposFuente || !gruposFuente.length) {
+                    console.warn('⚠️ gruposEdad vacío al generar ceros; extrayendo desde DOM');
+                    const idsDom = new Set();
+                    document.querySelectorAll('input.input-matricula-nueva').forEach(inp => {
+                        const geId = inp.getAttribute('data-grupo-edad');
+                        if (geId) idsDom.add(geId);
+                    });
+                    gruposFuente = Array.from(idsDom).map(id => ({ Id_Grupo_Edad: id }));
+                }
+                tiposFuente.forEach(ti => {
+                    const tipoIngresoId = ti.Id_Tipo_Ingreso || ti.id || ti.Id || ti.ID;
+                    gruposFuente.forEach(ge => {
+                        const grupoEdadId = ge.Id_Grupo_Edad || ge.id || ge.Id || ge.ID;
+                        sexos.forEach(sexo => {
+                            const key = `${tipoIngresoId}_${grupoEdadId}_${sexo}`;
+                            if (!dataCeros.datos_matricula[key]) {
+                                dataCeros.datos_matricula[key] = {
+                                    tipo_ingreso: tipoIngresoId,
+                                    grupo_edad: grupoEdadId,
+                                    sexo: sexo,
+                                    matricula: 0,
+                                    salones: totalGrupos
+                                };
+                            }
+                        });
+                    });
+                });
+                const totalCeros = Object.keys(dataCeros.datos_matricula).length;
+                if (totalCeros === 0) {
+                    console.warn('⚠️ No se generaron registros en cero (arrays fuente vacíos)');
+                }
+                console.log(`📤 Enviando ${Object.keys(dataCeros.datos_matricula).length} registros en cero para turno ${t.Turno}`);
+                const saveZeroResp = await fetch('/matricula/guardar_captura_completa', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dataCeros)
+                });
+                const saveZeroResult = await saveZeroResp.json();
+                if (saveZeroResult.error) {
+                    console.warn(`⚠️ Error guardando ceros para turno ${t.Turno}:`, saveZeroResult.error);
+                } else {
+                    console.log(`✅ Ceros guardados para turno ${t.Turno}`);
+                }
+            }
             console.log(`📊 Registros guardados: ${saveResult.registros_guardados || 'N/A'}`);
             
             // PASO 5.1: Actualizar Matricula desde Temp_Matricula
@@ -2264,7 +2518,10 @@
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({})
+                body: JSON.stringify({
+                    periodo: periodo,
+                    total_grupos: totalGrupos
+                })
             });
             
             const updateResult = await updateResponse.json();
@@ -2296,7 +2553,8 @@
                     programa: programa,
                     modalidad: modalidad,
                     semestre: semestre,
-                    turno: turno
+                    turno: turno,
+                    total_grupos: totalGrupos
                 })
             });
             
@@ -2313,18 +2571,28 @@
                 console.log('✅ Validación exitosa!');
                 
                 // Actualizar estado del semáforo usando el valor verificado del backend
-                const estadoVerificado = resultado.estado_semaforo || 3;
-                
-                // Usar la función de persistencia para marcar el semestre
-                marcarSemestreComoValidado(semestreActual);
-                console.log(`🚦 Semestre ${semestreActual} actualizado con estado verificado: ${estadoVerificado} (guardado en memoria y localStorage)`);
-                
+                const estadoVerificado = (typeof resultado.estado_semaforo === 'number') ? resultado.estado_semaforo : null;
+
                 if (estadoVerificado === 3) {
+                    // Usar la función de persistencia para marcar el semestre
+                    marcarSemestreComoValidado(semestreActual);
+                    console.log(`🚦 Semestre ${semestreActual} actualizado con estado verificado: ${estadoVerificado} (guardado en memoria y localStorage)`);
                     console.log('🟢 Confirmación: Semestre marcado como COMPLETADO en la base de datos');
                     // Bloquear toda la edición en la vista al finalizar captura
                     deshabilitarTodaLaVista();
+                    // Deshabilitar botones de acción excepto informe
+                    const btnGuardar = document.getElementById('btn-guardar-matricula');
+                    const btnLimpiar = document.getElementById('btn-limpiar-formulario');
+                    const btnValidar2 = document.getElementById('btn-validar-matricula');
+                    const btnInforme = document.getElementById('btn-ver-informe');
+                    [btnGuardar, btnLimpiar, btnValidar2].forEach(b => { if (b) { b.disabled = true; b.classList.add('input-disabled'); }});
+                    if (btnInforme) { btnInforme.disabled = false; btnInforme.classList.remove('input-disabled'); }
+                } else if (estadoVerificado === 2) {
+                    console.warn(`⚠️ Advertencia: Estado del semestre es 2 (parcial), no se bloquea la edición.`);
+                } else if (estadoVerificado === 1) {
+                    console.warn(`⚠️ Advertencia: Estado del semestre es 1 (sin datos), no se bloquea la edición.`);
                 } else {
-                    console.warn(`⚠️ Advertencia: Estado del semestre es ${estadoVerificado}, no 3 (completado)`);
+                    console.warn(`⚠️ No se pudo verificar el estado del semáforo desde el backend. No se bloqueará la edición ni se marcará como completado.`);
                 }
                 
                 // Actualizar colores de pestañas
@@ -2336,8 +2604,10 @@
                     mensajeEstado = '🟢 El semestre ha sido marcado como COMPLETADO';
                 } else if (estadoVerificado === 2) {
                     mensajeEstado = '🟡 El semestre tiene datos parciales';
+                } else if (estadoVerificado === 1) {
+                    mensajeEstado = '🔴 El semestre sigue sin datos';
                 } else {
-                    mensajeEstado = `Estado del semestre: ${estadoVerificado}`;
+                    mensajeEstado = 'No se pudo confirmar el estado del semáforo';
                 }
                 
                 alert(
@@ -2473,6 +2743,12 @@
         if(!panel) return;
         if (panel.style.display === 'none' || panel.style.display === '') {
             panel.style.display = 'block';
+            // Asegurar contenido actualizado antes de desplazarse
+            try { actualizarInforme(); } catch(e){ console.warn('No se pudo actualizar informe antes de scroll', e); }
+            // Desplazamiento suave al panel
+            setTimeout(() => {
+                panel.scrollIntoView({behavior:'smooth', block:'start'});
+            }, 50);
         } else {
             panel.style.display = 'none';
         }

@@ -260,6 +260,7 @@ def execute_matricula_sp_with_context(
 
 def execute_sp_actualiza_matricula_por_unidad_academica(
     db: Session,
+    unidad_sigla: str,
     salones: int,
     usuario: str,
     periodo: str,
@@ -270,6 +271,7 @@ def execute_sp_actualiza_matricula_por_unidad_academica(
     sql = text(
         """
         EXEC [dbo].[SP_Actualiza_Matricula_Por_Unidad_Academica]
+            @UUnidad_Academica = :unidad_sigla,
             @SSalones = :salones,
             @UUsuario = :usuario,
             @PPeriodo = :periodo,
@@ -278,6 +280,7 @@ def execute_sp_actualiza_matricula_por_unidad_academica(
         """
     )
     db.execute(sql, {
+        'unidad_sigla': unidad_sigla,
         'salones': salones,
         'usuario': usuario,
         'periodo': periodo,
@@ -293,6 +296,7 @@ def execute_sp_actualiza_matricula_por_semestre_au(
     programa_nombre: str,
     modalidad_nombre: str,
     semestre_nombre: str,
+    salones: int,
     usuario: str,
     periodo: str,
     host: str,
@@ -306,6 +310,7 @@ def execute_sp_actualiza_matricula_por_semestre_au(
             @PPrograma = :programa,
             @MModalidad = :modalidad,
             @SSemestre = :semestre,
+            @SSalones = :salones,
             @UUsuario = :usuario,
             @PPeriodo = :periodo,
             @HHost = :host,
@@ -317,6 +322,7 @@ def execute_sp_actualiza_matricula_por_semestre_au(
         'programa': programa_nombre,
         'modalidad': modalidad_nombre,
         'semestre': semestre_nombre,
+        'salones': int(salones) if salones is not None else 0,
         'usuario': usuario,
         'periodo': periodo,
         'host': host,

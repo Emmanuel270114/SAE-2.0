@@ -584,6 +584,23 @@ async def actualizar_matricula(request: Request, db: Session = Depends(get_db)):
         apellidoM_usuario = request.cookies.get("apellidoM_usuario", "")
         nombre_completo = " ".join(filter(None, [nombre_usuario, apellidoP_usuario, apellidoM_usuario]))
         
+        # Obtener unidad académica desde cookies (si no está, resolver vía Id_Unidad_Academica)
+        unidad_sigla = request.cookies.get("unidad_sigla", "")
+        if not unidad_sigla:
+            try:
+                id_unidad_cookie = int(request.cookies.get("id_unidad_academica", 0))
+            except Exception:
+                id_unidad_cookie = 0
+            if id_unidad_cookie:
+                unidad_obj = db.query(Unidad_Academica).filter(Unidad_Academica.Id_Unidad_Academica == id_unidad_cookie).first()
+                if unidad_obj and unidad_obj.Sigla:
+                    unidad_sigla = unidad_obj.Sigla
+                    print(f"🛠️ Resuelta unidad_sigla desde Id_Unidad_Academica cookie: {unidad_sigla}")
+                else:
+                    print("⚠️ No se pudo resolver unidad_sigla desde Id_Unidad_Academica")
+            else:
+                print("⚠️ Cookie unidad_sigla ausente y no hay Id_Unidad_Academica válido")
+
         # Obtener usuario y host
         usuario_sp = nombre_completo or 'sistema'
         host_sp = get_request_host(request)
@@ -690,6 +707,7 @@ async def actualizar_matricula(request: Request, db: Session = Depends(get_db)):
         print(f"=================================")
         
         print(f"\n=== PARÁMETROS DEL SP ===")
+        print(f"@UUnidad_Academica = '{unidad_sigla}' (tipo: {type(unidad_sigla).__name__})")
         print(f"@SSalones = '{total_grupos}' (tipo: {type(total_grupos).__name__})")
         print(f"@UUsuario = '{usuario_sp}' (tipo: {type(usuario_sp).__name__})")
         print(f"@PPeriodo = '{periodo}' (tipo: {type(periodo).__name__})")
@@ -701,6 +719,7 @@ async def actualizar_matricula(request: Request, db: Session = Depends(get_db)):
         try:
             execute_sp_actualiza_matricula_por_unidad_academica(
                 db,
+                unidad_sigla=unidad_sigla,
                 salones=total_grupos,
                 usuario=usuario_sp,
                 periodo=periodo,
@@ -928,7 +947,7 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
         print(f"\n{'='*60}")
         print(f"VALIDANDO CAPTURA DE SEMESTRE")
         print(f"{'='*60}")
-        print(f"Periodo: {periodo}")
+        print(f"Periodo (input): {periodo}")
         print(f"Programa ID: {programa}")
         print(f"Modalidad ID: {modalidad}")
         print(f"Semestre ID: {semestre}")
@@ -948,6 +967,15 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
                     "turno": turno
                 }
             }
+
+        # Convertir período a literal si viene como ID (el SP requiere literal ej: '2025-2026/1')
+        if str(periodo).isdigit():
+            periodo_obj = db.query(Periodo).filter(Periodo.Id_Periodo == int(periodo)).first()
+            periodo_literal = periodo_obj.Periodo if periodo_obj else PERIODO_DEFAULT_LITERAL
+            print(f"🔄 Período convertido de ID {periodo} → '{periodo_literal}'")
+        else:
+            periodo_literal = str(periodo)
+            print(f"✅ Período en literal: '{periodo_literal}'")
         
         # Obtener nombres literales desde la BD para el SP
         # Unidad Académica
@@ -986,6 +1014,7 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
         print(f"Modalidad: {modalidad_nombre}")
         print(f"Semestre: {semestre_nombre}")
         print(f"Nivel: {nivel_nombre}")
+        print(f"Período (literal): {periodo_literal}")
         
         # Validar que se obtuvieron todos los valores
         if not all([unidad_sigla, programa_nombre, modalidad_nombre, semestre_nombre, nivel_nombre]):
@@ -1001,15 +1030,19 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
             }
         
         # Ejecutar el SP SP_Actualiza_Matricula_Por_Semestre_AU
-        # Ejecutar SP de validación por semestre (servicio centraliza SQL)
+        # Nota: El SP requiere @SSalones, lo obtenemos del request (Total Grupos)
+        total_grupos = int(data.get('total_grupos', 0) or 0)
+        print(f"Total de Grupos (salones) para validación: {total_grupos}")
+        # Ejecutar SP de validación por semestre
         rows_list = execute_sp_actualiza_matricula_por_semestre_au(
             db,
             unidad_sigla=unidad_sigla,
             programa_nombre=programa_nombre,
             modalidad_nombre=modalidad_nombre,
             semestre_nombre=semestre_nombre,
+            salones=total_grupos,
             usuario=usuario_sp,
-            periodo=periodo,
+            periodo=periodo_literal,
             host=host_sp,
             nivel=nivel_nombre,
         )
@@ -1023,7 +1056,7 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
             db,
             id_unidad_academica=id_unidad_academica,
             id_nivel=id_nivel,
-            periodo_input=periodo,
+            periodo_input=periodo_literal,
             usuario=usuario_sp,
             host=host_sp,
             programa_nombre=programa_nombre,
@@ -1044,8 +1077,9 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
                     "programa": programa_nombre,
                     "modalidad": modalidad_nombre,
                     "semestre": semestre_nombre,
+                    "salones": total_grupos,
                     "usuario": usuario_sp,
-                    "periodo": periodo,
+                    "periodo": periodo_literal,
                     "host": host_sp,
                     "nivel": nivel_nombre
                 }
