@@ -8,6 +8,8 @@ from backend.crud.Matricula import (
 
 from sqlalchemy.orm import Session
 from typing import Dict, List, Any, Optional, Tuple
+from sqlalchemy import text
+from datetime import datetime
 
 
 def extract_unique_values_from_sp(rows_list: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -250,3 +252,169 @@ def execute_matricula_sp_with_context(
         import traceback
         traceback.print_exc()
         return [], {}, error_msg
+
+
+# =============================
+# SP helpers (centralizar SQL)
+# =============================
+
+def execute_sp_actualiza_matricula_por_unidad_academica(
+    db: Session,
+    unidad_sigla: str,
+    salones: int,
+    usuario: str,
+    periodo: str,
+    host: str,
+    nivel: str,
+) -> None:
+    """Ejecuta SP_Actualiza_Matricula_Por_Unidad_Academica. Centraliza SQL crudo aquí."""
+    sql = text(
+        """
+        EXEC [dbo].[SP_Actualiza_Matricula_Por_Unidad_Academica]
+            @UUnidad_Academica = :unidad_sigla,
+            @SSalones = :salones,
+            @UUsuario = :usuario,
+            @PPeriodo = :periodo,
+            @HHost   = :host,
+            @NNivel  = :nivel
+        """
+    )
+    db.execute(sql, {
+        'unidad_sigla': unidad_sigla,
+        'salones': salones,
+        'usuario': usuario,
+        'periodo': periodo,
+        'host': host,
+        'nivel': nivel,
+    })
+    db.commit()
+
+
+def execute_sp_actualiza_matricula_por_semestre_au(
+    db: Session,
+    unidad_sigla: str,
+    programa_nombre: str,
+    modalidad_nombre: str,
+    semestre_nombre: str,
+    salones: int,
+    usuario: str,
+    periodo: str,
+    host: str,
+    nivel: str,
+) -> List[Dict[str, Any]]:
+    """Ejecuta SP_Actualiza_Matricula_Por_Semestre_AU y devuelve el último result set como lista de dicts."""
+    sql = text(
+        """
+        EXEC [dbo].[SP_Actualiza_Matricula_Por_Semestre_AU]
+            @UUnidad_Academica = :unidad,
+            @PPrograma = :programa,
+            @MModalidad = :modalidad,
+            @SSemestre = :semestre,
+            @SSalones = :salones,
+            @UUsuario = :usuario,
+            @PPeriodo = :periodo,
+            @HHost = :host,
+            @NNivel = :nivel
+        """
+    )
+    result = db.execute(sql, {
+        'unidad': unidad_sigla,
+        'programa': programa_nombre,
+        'modalidad': modalidad_nombre,
+        'semestre': semestre_nombre,
+        'salones': int(salones) if salones is not None else 0,
+        'usuario': usuario,
+        'periodo': periodo,
+        'host': host,
+        'nivel': nivel,
+    })
+    db.commit()
+
+    # Intentar extraer el último result set con filas
+    rows_list: List[Dict[str, Any]] = []
+    try:
+        raw_cursor = getattr(result, 'cursor', None)
+        if raw_cursor is not None and hasattr(raw_cursor, 'nextset'):
+            while True:
+                try:
+                    rows_raw = raw_cursor.fetchall()
+                except Exception:
+                    rows_raw = []
+                if rows_raw:
+                    cols = [d[0] for d in (raw_cursor.description or [])]
+                    rows_list = []
+                    for row in rows_raw:
+                        rd = {}
+                        for i, c in enumerate(cols):
+                            try:
+                                v = row[i]
+                            except Exception:
+                                v = None
+                            if isinstance(v, (bytes, bytearray)):
+                                try:
+                                    v = v.decode('utf-8', errors='ignore')
+                                except Exception:
+                                    v = str(v)
+                            if isinstance(v, datetime):
+                                v = v.isoformat()
+                            rd[c] = v
+                        rows_list.append(rd)
+                if not raw_cursor.nextset():
+                    break
+        else:
+            try:
+                rows_raw = result.fetchall()
+                cols = list(result.keys())
+            except Exception:
+                rows_raw = []
+                cols = []
+            for row in rows_raw:
+                rd = {}
+                for i, c in enumerate(cols):
+                    v = row[i]
+                    if isinstance(v, datetime):
+                        v = v.isoformat()
+                    rd[c] = v
+                rows_list.append(rd)
+    except Exception:
+        pass
+
+    return rows_list
+
+
+def get_estado_semaforo_desde_sp(
+    db: Session,
+    id_unidad_academica: int,
+    id_nivel: int,
+    periodo_input: str,
+    usuario: str,
+    host: str,
+    programa_nombre: str,
+    modalidad_nombre: str,
+    semestre_nombre: str,
+) -> Optional[int]:
+    """Consulta el SP de matrícula y devuelve el Id_Semaforo para el contexto solicitado."""
+    rows, _meta, _dbg = execute_matricula_sp_with_context(
+        db,
+        id_unidad_academica,
+        id_nivel,
+        periodo_input,
+        periodo_input,
+        usuario,
+        host,
+    )
+    # Filtrar por programa, modalidad y semestre
+    for r in rows:
+        if (
+            str(r.get('Nombre_Programa','')) == str(programa_nombre)
+            and str(r.get('Modalidad','')) == str(modalidad_nombre)
+            and str(r.get('Semestre','')) == str(semestre_nombre)
+        ):
+            # soportar variantes de nombre de columna
+            for k in ('Id_Semaforo','id_semaforo','ID_Semaforo'):
+                if k in r and r[k] not in (None, ''):
+                    try:
+                        return int(r[k])
+                    except Exception:
+                        continue
+    return None

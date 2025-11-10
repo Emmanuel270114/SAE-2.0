@@ -22,7 +22,10 @@ from backend.database.models.CatRama import CatRama as Rama
 from backend.database.models.CatSemaforo import CatSemaforo
 from backend.services.matricula_service import (
     execute_matricula_sp_with_context,
-    get_matricula_metadata_from_sp
+    get_matricula_metadata_from_sp,
+    execute_sp_actualiza_matricula_por_unidad_academica,
+    execute_sp_actualiza_matricula_por_semestre_au,
+    get_estado_semaforo_desde_sp,
 )
 from backend.utils.request import get_request_host
 from backend.database.models.Temp_Matricula import Temp_Matricula
@@ -287,161 +290,36 @@ async def obtener_datos_existentes_sp(
 # Endpoint de depuración detallada del SP
 @router.get('/debug_sp')
 async def debug_sp(request: Request, db: Session = Depends(get_db)):
-    """Endpoint temporal para ver qué trae el SP exactamente — detecta UA y nivel desde cookies."""
+    """Endpoint de depuración que usa el servicio (sin SQL crudo aquí)."""
     try:
-        print(f"\n{'='*60}")
-        print(f"EJECUTANDO SP (debug) usando cookies del usuario")
-        print(f"{'='*60}")
-
-        # Leer cookies del usuario
         id_unidad_academica = int(request.cookies.get("id_unidad_academica", 0))
         id_nivel = int(request.cookies.get("id_nivel", 0))
         nombre_usuario = request.cookies.get("nombre_usuario", "")
         apellidoP_usuario = request.cookies.get("apellidoP_usuario", "")
         apellidoM_usuario = request.cookies.get("apellidoM_usuario", "")
         nombre_completo = " ".join(filter(None, [nombre_usuario, apellidoP_usuario, apellidoM_usuario]))
-        periodo = '2025-2026/1'
-    
-
-        print(f"ID Unidad Académica (cookie): {id_unidad_academica}")
-        print(f"ID Nivel (cookie): {id_nivel}")
-        print(f"Usuario: {nombre_completo}")
-        print(f"Periodo (forzado): {periodo}")
-
-        # Obtener usuario y host para el SP
         usuario_sp = nombre_completo or 'sistema'
         host_sp = get_request_host(request)
-        print(f"Host: {host_sp}")
 
-        unidad = db.query(Unidad_Academica).filter(Unidad_Academica.Id_Unidad_Academica == id_unidad_academica).first()
-        nivel = db.query(Nivel).filter(Nivel.Id_Nivel == id_nivel).first()
-        periodo_obj = db.query(Periodo).filter(Periodo.Periodo == periodo).first()
-
-        if not unidad:
-            return {"error": f"Unidad Académica con id {id_unidad_academica} no encontrada"}
-        if not nivel:
-            return {"error": f"Nivel con id {id_nivel} no encontrado"}
-
-        unidad_sigla = unidad.Sigla
-        nivel_nombre = nivel.Nivel
-        periodo_nombre = periodo_obj.Periodo if periodo_obj else periodo
-
-        print(f"Ejecutando SP con: Unidad={unidad_sigla}, Periodo={periodo_nombre}, Nivel={nivel_nombre}, Usuario={usuario_sp}, Host={host_sp}")
-
-        sql = text("""
-            EXEC SP_Consulta_Matricula_Unidad_Academica 
-                @UUnidad_Academica = :unidad, 
-                @Pperiodo = :periodo, 
-                @NNivel = :nivel, 
-                @UUsuario = :usuario, 
-                @HHost = :host
-        """)
-        result = db.execute(sql, {
-            'unidad': unidad_sigla, 
-            'periodo': periodo_nombre, 
-            'nivel': nivel_nombre,
-            'usuario': usuario_sp,
-            'host': host_sp
-        })
-        rows = result.fetchall()
-
-        print(f"TOTAL DE FILAS DEVUELTAS: {len(rows)}")
-
-        columns = []
-        if rows:
-            # Analizar el tipo de resultado
-            print(f"\nTIPO DE RESULTADO: {type(rows[0])}")
-            print(f"PRIMERA FILA RAW: {rows[0]}")
-
-            # Intentar obtener nombres de columnas de diferentes maneras
-            try:
-                columns = list(rows[0].keys())
-                print(f"\nCOLUMNAS DISPONIBLES (método keys) - {len(columns)}:")
-                for i, col in enumerate(columns, 1):
-                    print(f"  {i:2d}. {col}")
-            except Exception as e1:
-                print(f"Error con método keys(): {e1}")
-                try:
-                    columns = list(rows[0]._fields)
-                    print(f"\nCOLUMNAS DISPONIBLES (método _fields) - {len(columns)}:")
-                    for i, col in enumerate(columns, 1):
-                        print(f"  {i:2d}. {col}")
-                except Exception as e2:
-                    print(f"Error con método _fields: {e2}")
-                    attrs = [attr for attr in dir(rows[0]) if not attr.startswith('_')]
-                    print(f"MÉTODOS/ATRIBUTOS DISPONIBLES: {attrs}")
-                    columns = []
-
-            # Mostrar primera fila completa
-            print(f"\nPRIMERA FILA DE DATOS:")
-            if columns:
-                for col in columns:
-                    try:
-                        value = getattr(rows[0], col, 'N/A')
-                        print(f"  {col}: '{value}' ({type(value).__name__})")
-                    except Exception as e:
-                        print(f"  {col}: ERROR - {e}")
-            else:
-                print(f"  No se pudieron obtener columnas, fila raw: {rows[0]}")
-
-            # Mostrar todas las filas (máximo 20 para no saturar)
-            print(f"\nTODAS LAS FILAS (máximo 20):")
-            for i, row in enumerate(rows[:20], 1):
-                print(f"\nFila {i}:")
-                if columns:
-                    for col in columns:
-                        try:
-                            value = getattr(row, col, 'N/A')
-                            print(f"  {col}: {value}")
-                        except Exception as e:
-                            print(f"  {col}: ERROR - {e}")
-                else:
-                    print(f"  Fila raw: {row}")
-                print("-" * 40)
-
-            if len(rows) > 20:
-                print(f"\n... y {len(rows) - 20} filas más")
-
-            # Análisis de valores únicos por columna
-            if columns:
-                print(f"\nANÁLISIS DE VALORES ÚNICOS POR COLUMNA:")
-                for col in columns:
-                    try:
-                        unique_values = set()
-                        for row in rows:
-                            try:
-                                value = getattr(row, col, None)
-                                if value is not None:
-                                    unique_values.add(str(value))
-                            except Exception:
-                                continue
-
-                        print(f"\n{col}:")
-                        if len(unique_values) <= 10:
-                            for val in sorted(unique_values):
-                                print(f"  - '{val}'")
-                        else:
-                            sorted_vals = sorted(unique_values)
-                            print(f"  Primeros 10 valores de {len(unique_values)} únicos:")
-                            for val in sorted_vals[:10]:
-                                print(f"  - '{val}'")
-                            print(f"  ... y {len(unique_values) - 10} más")
-                    except Exception as e:
-                        print(f"\nError analizando columna {col}: {e}")
-        else:
-            print("EL SP NO DEVOLVIÓ DATOS")
-
-        print(f"{'='*60}")
-
+        periodo = '2025-2026/1'
+        rows, metadata, debug_msg = execute_matricula_sp_with_context(
+            db,
+            id_unidad_academica,
+            id_nivel,
+            periodo,
+            periodo,
+            usuario_sp,
+            host_sp,
+        )
+        columnas = list(rows[0].keys()) if rows else []
         return {
-            "mensaje": f"SP ejecutado - {len(rows)} filas devueltas",
+            "mensaje": debug_msg,
             "total_filas": len(rows),
-            "columnas": columns,
-            "primera_fila": str(rows[0]) if rows else None
+            "columnas": columnas,
+            "primera_fila": rows[0] if rows else None,
+            "metadata": metadata,
         }
-
     except Exception as e:
-        print(f"ERROR AL EJECUTAR SP: {str(e)}")
         return {"error": str(e)}
 
 @router.get('/semestres_map')
@@ -706,6 +584,23 @@ async def actualizar_matricula(request: Request, db: Session = Depends(get_db)):
         apellidoM_usuario = request.cookies.get("apellidoM_usuario", "")
         nombre_completo = " ".join(filter(None, [nombre_usuario, apellidoP_usuario, apellidoM_usuario]))
         
+        # Obtener unidad académica desde cookies (si no está, resolver vía Id_Unidad_Academica)
+        unidad_sigla = request.cookies.get("unidad_sigla", "")
+        if not unidad_sigla:
+            try:
+                id_unidad_cookie = int(request.cookies.get("id_unidad_academica", 0))
+            except Exception:
+                id_unidad_cookie = 0
+            if id_unidad_cookie:
+                unidad_obj = db.query(Unidad_Academica).filter(Unidad_Academica.Id_Unidad_Academica == id_unidad_cookie).first()
+                if unidad_obj and unidad_obj.Sigla:
+                    unidad_sigla = unidad_obj.Sigla
+                    print(f"🛠️ Resuelta unidad_sigla desde Id_Unidad_Academica cookie: {unidad_sigla}")
+                else:
+                    print("⚠️ No se pudo resolver unidad_sigla desde Id_Unidad_Academica")
+            else:
+                print("⚠️ Cookie unidad_sigla ausente y no hay Id_Unidad_Academica válido")
+
         # Obtener usuario y host
         usuario_sp = nombre_completo or 'sistema'
         host_sp = get_request_host(request)
@@ -812,6 +707,7 @@ async def actualizar_matricula(request: Request, db: Session = Depends(get_db)):
         print(f"=================================")
         
         print(f"\n=== PARÁMETROS DEL SP ===")
+        print(f"@UUnidad_Academica = '{unidad_sigla}' (tipo: {type(unidad_sigla).__name__})")
         print(f"@SSalones = '{total_grupos}' (tipo: {type(total_grupos).__name__})")
         print(f"@UUsuario = '{usuario_sp}' (tipo: {type(usuario_sp).__name__})")
         print(f"@PPeriodo = '{periodo}' (tipo: {type(periodo).__name__})")
@@ -819,37 +715,20 @@ async def actualizar_matricula(request: Request, db: Session = Depends(get_db)):
         print(f"@NNivel = '{nivel}' (tipo: {type(nivel).__name__})")
         print(f"========================")
         
-        # Ejecutar el stored procedure
+        # Ejecutar el stored procedure (centralizado en el servicio)
         try:
-            cursor = db.execute(text("""
-                EXEC [dbo].[SP_Actualiza_Matricula_Por_Unidad_Academica] 
-                    @SSalones = :salones,
-                    @UUsuario = :usuario,
-                    @PPeriodo = :periodo,
-                    @HHost = :host,
-                    @NNivel = :nivel
-            """), {
-                'salones': total_grupos,
-                'usuario': usuario_sp,
-                'periodo': periodo,
-                'host': host_sp,
-                'nivel': nivel
-            })
-            
-            # Intentar obtener resultados del SP (mensajes, errores, etc.)
-            try:
-                result = cursor.fetchall()
-                if result:
-                    print(f"Resultado del SP: {result}")
-            except Exception as e:
-                print(f"No hay resultados del SP (normal): {e}")
-            
-            db.commit()
+            execute_sp_actualiza_matricula_por_unidad_academica(
+                db,
+                unidad_sigla=unidad_sigla,
+                salones=total_grupos,
+                usuario=usuario_sp,
+                periodo=periodo,
+                host=host_sp,
+                nivel=nivel,
+            )
             print("SP ejecutado exitosamente")
-            
         except Exception as sp_error:
             print(f"ERROR al ejecutar SP: {sp_error}")
-            db.rollback()
             raise
         
         # Verificar que Temp_Matricula quedó vacía (el SP hace TRUNCATE)
@@ -1068,7 +947,7 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
         print(f"\n{'='*60}")
         print(f"VALIDANDO CAPTURA DE SEMESTRE")
         print(f"{'='*60}")
-        print(f"Periodo: {periodo}")
+        print(f"Periodo (input): {periodo}")
         print(f"Programa ID: {programa}")
         print(f"Modalidad ID: {modalidad}")
         print(f"Semestre ID: {semestre}")
@@ -1088,6 +967,15 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
                     "turno": turno
                 }
             }
+
+        # Convertir período a literal si viene como ID (el SP requiere literal ej: '2025-2026/1')
+        if str(periodo).isdigit():
+            periodo_obj = db.query(Periodo).filter(Periodo.Id_Periodo == int(periodo)).first()
+            periodo_literal = periodo_obj.Periodo if periodo_obj else PERIODO_DEFAULT_LITERAL
+            print(f"🔄 Período convertido de ID {periodo} → '{periodo_literal}'")
+        else:
+            periodo_literal = str(periodo)
+            print(f"✅ Período en literal: '{periodo_literal}'")
         
         # Obtener nombres literales desde la BD para el SP
         # Unidad Académica
@@ -1126,6 +1014,7 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
         print(f"Modalidad: {modalidad_nombre}")
         print(f"Semestre: {semestre_nombre}")
         print(f"Nivel: {nivel_nombre}")
+        print(f"Período (literal): {periodo_literal}")
         
         # Validar que se obtuvieron todos los valores
         if not all([unidad_sigla, programa_nombre, modalidad_nombre, semestre_nombre, nivel_nombre]):
@@ -1141,117 +1030,39 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
             }
         
         # Ejecutar el SP SP_Actualiza_Matricula_Por_Semestre_AU
-        sp_query = text("""
-            EXEC [dbo].[SP_Actualiza_Matricula_Por_Semestre_AU]
-                @UUnidad_Academica = :unidad_academica,
-                @PPrograma = :programa,
-                @MModalidad = :modalidad,
-                @SSemestre = :semestre,
-                @UUsuario = :usuario,
-                @PPeriodo = :periodo,
-                @HHost = :host,
-                @NNivel = :nivel
-        """)
-        
-        result = db.execute(sp_query, {
-            'unidad_academica': unidad_sigla,
-            'programa': programa_nombre,
-            'modalidad': modalidad_nombre,
-            'semestre': semestre_nombre,
-            'usuario': usuario_sp,
-            'periodo': periodo,
-            'host': host_sp,
-            'nivel': nivel_nombre
-        })
-        
-        db.commit()
-        
-        # El SP devuelve múltiples result sets, necesitamos el último (datos actualizados)
-        # Consumir todos los result sets intermedios
-        rows_list = []
-        columns = []
-        
-        try:
-            # Iterar sobre todos los result sets
-            while True:
-                # Intentar obtener las filas del result set actual
-                try:
-                    rows_raw = result.fetchall()
-                    if rows_raw:
-                        columns = result.keys()
-                        # Guardar las filas del último result set con datos
-                        rows_list = []
-                        for row in rows_raw:
-                            row_dict = {}
-                            for i, col in enumerate(columns):
-                                val = row[i]
-                                # Convertir tipos especiales
-                                if isinstance(val, datetime):
-                                    val = val.isoformat()
-                                elif val is None:
-                                    val = None
-                                row_dict[col] = val
-                            rows_list.append(row_dict)
-                        print(f"📦 Result set procesado: {len(rows_list)} filas")
-                except Exception as fetch_error:
-                    print(f"⚠️ Error al procesar result set: {fetch_error}")
-                    break
-                
-                # Intentar avanzar al siguiente result set
-                if not result.nextset():
-                    break
-        except Exception as e:
-            print(f"⚠️ Fin de result sets: {e}")
+        # Nota: El SP requiere @SSalones, lo obtenemos del request (Total Grupos)
+        total_grupos = int(data.get('total_grupos', 0) or 0)
+        print(f"Total de Grupos (salones) para validación: {total_grupos}")
+        # Ejecutar SP de validación por semestre
+        rows_list = execute_sp_actualiza_matricula_por_semestre_au(
+            db,
+            unidad_sigla=unidad_sigla,
+            programa_nombre=programa_nombre,
+            modalidad_nombre=modalidad_nombre,
+            semestre_nombre=semestre_nombre,
+            salones=total_grupos,
+            usuario=usuario_sp,
+            periodo=periodo_literal,
+            host=host_sp,
+            nivel=nivel_nombre,
+        )
         
         print(f"\n✅ SP ejecutado exitosamente")
         print(f"Filas finales devueltas: {len(rows_list)}")
         
-        # Consultar directamente el estado del semáforo actualizado desde la tabla
-        # porque el SP de consulta puede no incluir semestres completados
-        print(f"\n🔍 Consultando estado actualizado del semáforo para verificar...")
-        
-        try:
-            query_semaforo = text("""
-                SELECT ssua.Id_Semestre, ssua.id_semaforo, sem.Semestre
-                FROM [dbo].[Semaforo_Semestre_Unidad_Academica] ssua
-                INNER JOIN [dbo].[Cat_Periodo] per ON ssua.Id_Periodo = per.Id_Periodo
-                INNER JOIN [dbo].[Cat_Unidad_Academica] ua ON ssua.Id_Unidad_Academica = ua.Id_Unidad_Academica
-                INNER JOIN [dbo].[Programa_Modalidad] pm ON pm.id_Modalidad_programa = ssua.id_Modalidad_programa
-                INNER JOIN [dbo].[Cat_Modalidad] md ON md.Id_modalidad = pm.Id_modalidad
-                INNER JOIN [dbo].[Cat_Programas] pro ON pm.Id_Programa = pro.Id_Programa
-                INNER JOIN [dbo].[Cat_Semestre] sem ON ssua.Id_Semestre = sem.Id_Semestre
-                WHERE per.Periodo = :periodo
-                    AND ua.sigla = :unidad
-                    AND md.Modalidad = :modalidad
-                    AND pro.Nombre_Programa = :programa
-                    AND sem.Semestre = :semestre
-            """)
-            
-            result_semaforo = db.execute(query_semaforo, {
-                'periodo': periodo,
-                'unidad': unidad_sigla,
-                'modalidad': modalidad_nombre,
-                'programa': programa_nombre,
-                'semestre': semestre_nombre
-            })
-            
-            semaforo_row = result_semaforo.fetchone()
-            estado_semaforo_actualizado = None
-            
-            if semaforo_row:
-                estado_semaforo_actualizado = semaforo_row[1]  # id_semaforo
-                print(f"✅ Estado del semáforo verificado: ID={estado_semaforo_actualizado}")
-                
-                if estado_semaforo_actualizado == 3:
-                    print(f"🟢 Semestre '{semestre_nombre}' marcado como COMPLETADO")
-                else:
-                    print(f"⚠️ ADVERTENCIA: Semestre '{semestre_nombre}' tiene estado {estado_semaforo_actualizado}, se esperaba 3")
-            else:
-                print(f"⚠️ No se encontró registro de semáforo para {semestre_nombre}")
-                
-        except Exception as e_semaforo:
-            print(f"⚠️ Error al consultar semáforo: {e_semaforo}")
-            estado_semaforo_actualizado = None
+        # Verificar semáforo sin SQL crudo: reconsultar SP y extraer estado
+        print(f"\n🔍 Consultando estado actualizado del semáforo vía SP...")
+        estado_semaforo_actualizado = get_estado_semaforo_desde_sp(
+            db,
+            id_unidad_academica=id_unidad_academica,
+            id_nivel=id_nivel,
+            periodo_input=periodo_literal,
+            usuario=usuario_sp,
+            host=host_sp,
+            programa_nombre=programa_nombre,
+            modalidad_nombre=modalidad_nombre,
+            semestre_nombre=semestre_nombre,
+        )
         
         return {
             "success": True,
@@ -1266,8 +1077,9 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
                     "programa": programa_nombre,
                     "modalidad": modalidad_nombre,
                     "semestre": semestre_nombre,
+                    "salones": total_grupos,
                     "usuario": usuario_sp,
-                    "periodo": periodo,
+                    "periodo": periodo_literal,
                     "host": host_sp,
                     "nivel": nivel_nombre
                 }
