@@ -20,7 +20,7 @@
     </div>
 
     <!-- 🔹 Filtro por descripción del rol -->
-    <div class="filtro-rol-box">
+    <div class="filtro-ua-box">
         <label for="filtro-rol">Filtrar por Descripción:</label>
         <select id="filtro-rol" class="input-form">
             <option value="">Todos</option>
@@ -31,7 +31,7 @@
     </div>
 
     <!-- 🔹 Tabla de roles -->
-    <div>
+    <div class="table-container">
         <table id="tabla-roles">
             <thead>
                 <tr>
@@ -41,7 +41,7 @@
             </thead>
             <tbody>
                 {% for r in roles %}
-                <tr class="fila-rol">
+                <tr class="fila-edit">
                     <td>{{ r.Rol }}</td>
                     <td>{{ r.Descripcion }}</td>
                 </tr>
@@ -56,7 +56,7 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    const filtro = document.getElementById("filtro-rol");
+    const filtro = document.getElementById("filtro-edit");
     const filas = document.querySelectorAll("#tabla-roles tbody tr");
 
     filtro.addEventListener("change", () => {

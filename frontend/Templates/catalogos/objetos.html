@@ -18,7 +18,7 @@
     </div>
 
 
-    <div>
+    <div class="table-container">
     <table id="tabla-domicilios">
         <thead>
             <tr>
@@ -27,7 +27,7 @@
         </thead>
         <tbody>
             {% for o in objetos %}
-            <tr class="fila-usuario">
+            <tr class="fila-edit">
                 <td>{{ o.Objeto }}</td>
             </tr>
             {% endfor %}

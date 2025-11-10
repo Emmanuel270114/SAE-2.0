@@ -21,7 +21,7 @@
 
      <!-- Formulario de registro/edición de usuarios -->
     {% if rol == 'Administrador' %}
-    <div class="registro-container">
+        <div class="registro-container">
         <h3 id="titulo-usuario">Registro Unidad Academica</h3>
         <form id="registroUA">
             <div class="form-row">
@@ -67,16 +67,16 @@
                     <label for="localidad">Localidad</label>
                     <input type="text" id="localidad" name="localidad" placeholder="Localidad" required readonly class="input-form">
                 </div>
-
+                <div class="form-group">
+                    <label for="entidad">Entidad</label>
+                    <input type="text" id="entidad" name="entidad" placeholder="Entidad" required readonly class="input-form">
+                </div>
                 <div class="form-group">
                     <label for="municipio">Municipio</label>
                     <input type="text" id="municipio" name="municipio" placeholder="Municipio" required readonly class="input-form">
                 </div>
                 
-                <div class="form-group">
-                    <label for="entidad">Entidad</label>
-                    <input type="text" id="entidad" name="entidad" placeholder="Entidad" required readonly class="input-form">
-                </div>
+                
             </div>
             <input type="hidden" id="id_usuario" name="id_usuario">
             <div class="form-row">
@@ -121,7 +121,7 @@
         </thead>
         <tbody>
             {% for d in domicilios %}
-            <tr class="fila-usuario" >
+            <tr class="fila-edit" >
                 <td>{{ d.Sigla }}</td>
                 <td>{{ d.Nombre }}</td>
                 <td>{{ d.Clave }}</td>
@@ -147,27 +147,99 @@
 
 {% block scripts %}
 
-    <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const selectFiltro = document.getElementById("filtro-ua");
-        const filas = document.querySelectorAll("#tabla-domicilios tbody tr");
+<!-- Script que sirve para el filtro por unidad academica -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const selectFiltro = document.getElementById("filtro-ua");
+    const filas = document.querySelectorAll("#tabla-domicilios tbody tr");
 
-        selectFiltro.addEventListener("change", function() {
-            const valor = selectFiltro.value.toLowerCase().trim();
+    selectFiltro.addEventListener("change", function() {
+        const valor = selectFiltro.value.toLowerCase().trim();
 
-            filas.forEach(fila => {
-                const unidad = fila.cells[0].textContent.toLowerCase().trim();
+        filas.forEach(fila => {
+            const unidad = fila.cells[0].textContent.toLowerCase().trim();
 
-                // 🔹 Si el valor está vacío, muestra todas las filas
-                // 🔹 Si no, muestra solo las que coinciden exactamente
-                if (valor === "" || unidad === valor) {
-                    fila.style.display = "";
-                } else {
-                    fila.style.display = "none";
-                }
-            });
+            // 🔹 Si el valor está vacío, muestra todas las filas
+            // 🔹 Si no, muestra solo las que coinciden exactamente
+            if (valor === "" || unidad === valor) {
+                fila.style.display = "";
+            } else {
+                fila.style.display = "none";
+            }
         });
     });
-    </script>
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const filas = document.querySelectorAll(".fila-edit");
+    const form = document.getElementById("registroUA");
+    const btnGuardar = document.getElementById("btn-guardar");
+    const btnEliminar = document.getElementById("btn-eliminar");
+    const btnCancelar = document.getElementById("btn-cancelar");
+    const btnLimpiar = document.getElementById("btn-limpiar");
+    const titulo = document.getElementById("titulo-usuario");
+
+    // Cuando se selecciona una fila, llenar el formulario
+    filas.forEach(fila => {
+        fila.addEventListener("click", () => {
+            const celdas = fila.querySelectorAll("td");
+
+            // Asignar valores de la tabla al formulario
+            document.getElementById("sigla").value = celdas[0].textContent.trim();
+            document.getElementById("nombreUA").value = celdas[1].textContent.trim();
+            document.getElementById("claveUA").value = celdas[2].textContent.trim();
+            document.getElementById("director").value = celdas[3].textContent.trim();
+            document.getElementById("rama").value = celdas[4].textContent.trim();
+            document.getElementById("calle").value = celdas[5].textContent.trim();
+            document.getElementById("colonia").value = celdas[6].textContent.trim();
+            document.getElementById("cp").value = celdas[7].textContent.trim();
+            document.getElementById("localidad").value = celdas[8].textContent.trim();
+            document.getElementById("municipio").value = celdas[9].textContent.trim();
+            document.getElementById("entidad").value = celdas[10].textContent.trim();
+
+            // Cambiar texto del botón y mostrar eliminar
+            btnGuardar.textContent = "Actualizar";
+            btnEliminar.style.display = "inline-block";
+
+            // Cambiar título
+            titulo.textContent = "Editar Unidad Académica";
+        });
+    });
+
+    // Botón limpiar: borra campos sin salir del modo actual
+    btnLimpiar.addEventListener("click", function () {
+        form.reset();
+        titulo.textContent = "Registro Unidad Académica"
+        btnGuardar.textContent = "Registrar";
+        btnEliminar.style.display = "none";
+    });
+
+    // Botón cancelar: limpia formulario y regresa al modo "Registrar"
+    btnCancelar.addEventListener("click", function () {
+        form.reset();
+        btnGuardar.textContent = "Registrar";
+        btnEliminar.style.display = "none";
+        titulo.textContent = "Registro Unidad Académica";
+    });
+
+    // (Opcional) Botón eliminar: aquí puedes añadir la lógica de eliminación
+    btnEliminar.addEventListener("click", function () {
+        const sigla = document.getElementById("sigla").value;
+        if (confirm(`¿Seguro que deseas eliminar la unidad académica "${sigla}"?`)) {
+            // Aquí iría tu lógica de eliminación (por ejemplo, una petición fetch a tu backend)
+            console.log("Eliminando unidad:", sigla);
+            form.reset();
+            btnGuardar.textContent = "Registrar";
+            btnEliminar.style.display = "none";
+            titulo.textContent = "Registro Unidad Académica";
+        }
+    });
+});
+</script>
+
+
+
 
 {% endblock %}
