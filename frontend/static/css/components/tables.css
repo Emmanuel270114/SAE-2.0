@@ -42,6 +42,16 @@ tr:hover {
     background: #f1e6ee;
 }
 
+.fila-edit {
+    cursor: pointer;
+}
+
+.fila-edit:hover {
+    background: #f1e6ee;
+}
+
+
+
 /* --- Ajustes para eliminar línea blanca y mantener encabezado fijo --- */
 
 /* Contenedor de tabla con scroll */

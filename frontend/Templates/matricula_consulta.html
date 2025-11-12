@@ -16,6 +16,46 @@
              margin: 0;
              padding: 0;
         }
+        /* Estilos visuales para inputs bloqueados */
+        .input-matricula-nueva.input-disabled {
+            background-color: #f3f4f6 !important; /* gris claro */
+            color: #6b7280 !important;            /* gris medio */
+            border-color: #e5e7eb !important;
+            cursor: not-allowed !important;
+        }
+        /* Atenuar y desactivar interacción del contenedor cuando está bloqueado */
+        .matricula-box.input-container-disabled {
+            position: relative;
+            opacity: 0.6;
+            pointer-events: none; /* evita focus/click */
+        }
+        /* Tooltip simple usando el atributo data-tooltip */
+        .matricula-box.input-container-disabled:hover::after {
+            opacity: 0.95;
+        }
+        .matricula-box.input-container-disabled::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            top: -26px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #111827;
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 10;
+        }
+        /* Apariencia deshabilitada para Total Grupos */
+        #input-total-grupos.input-disabled {
+            background-color: #f3f4f6 !important;
+            color: #6b7280 !important;
+            border-color: #e5e7eb !important;
+            cursor: not-allowed !important;
+        }
     </style>
 {% endblock %}
 
@@ -171,8 +211,8 @@
             
             <!-- Input Total Grupos -->
             <div class="total-grupos-container" style="display: flex; justify-content: flex-end; margin-bottom: 10px; padding: 0 15px;">
-                <div style="display: flex; align-items: center; gap: 10px; background: #f8f9fa; padding: 8px 15px; border-radius: 6px; border: 1px solid #dee2e6;">
-                    <label for="input-total-grupos" style="font-weight: 600; color: #495057; margin: 0;">Total Grupos:</label>
+                <div style="display: flex; align-items: center; gap: 10px; background: #6e0343; padding: 8px 15px; border-radius: 6px; border: 1px solid #dee2e6;">
+                    <label for="input-total-grupos" style="font-weight: 600; color: #ffffff; margin: 0;">Total Grupos:</label>
                     <input type="number" 
                            id="input-total-grupos" 
                            class="input-total-grupos"
@@ -199,18 +239,32 @@
         
         <!-- Botones justo después de la tabla -->
         <div class="actions-section actions-after-table">
+            {% if es_capturista %}
+            <!-- Botones para Capturista (rol ID 3) -->
             <button id="btn-guardar-matricula" type="button" class="btn-primary" onclick="guardarYActualizarMatricula()">
-                💾 Guardar Matrícula
+                💾 Guardar Avance
             </button>
-            <button type="button" class="btn-secondary" onclick="limpiarFormulario()">
+            <button id="btn-limpiar-formulario" type="button" class="btn-secondary" onclick="limpiarFormulario()">
                 🧹 Limpiar Formulario
             </button>
             <button id="btn-validar-matricula" type="button" class="btn-success" onclick="validarCapturaSemestre()">
-                ✅ Validar Matrícula
+                ✅ Finalizar Turno
             </button>
-            <button type="button" class="btn-info" onclick="toggleInformePanel()">
-                📈 Ver Informe de Guardado
+            <button id="btn-ver-informe" type="button" class="btn-info" onclick="toggleInformePanel()">
+                📈 Ver Informe
             </button>
+            {% else %}
+            <!-- Botones para roles de validación (ID 4 y 5) -->
+            <button id="btn-validar-semestre" type="button" class="btn-success" onclick="validarSemestre()">
+                ✅ Validar
+            </button>
+            <button id="btn-rechazar-semestre" type="button" class="btn-danger" onclick="rechazarSemestre()">
+                ❌ Rechazar
+            </button>
+            <button id="btn-ver-informe" type="button" class="btn-info" onclick="toggleInformePanel()">
+                📈 Ver Informe
+            </button>
+            {% endif %}
         </div>
     </div>
     <div id="informe-panel" class="informe-container" style="display:none;">
@@ -261,6 +315,11 @@
     const semestresMapJson = {{ semestres_map_json | safe }};
     const periodoLiteral = "{{ periodo_default_literal }}"; // Ej: "2025-2026/1"
     
+    // Variables de control de acceso por rol
+    const esCapturista = {{ 'true' if es_capturista else 'false' }};
+    const modoVista = "{{ modo_vista }}"; // "captura" o "validacion"
+    const idRol = {{ id_rol }};
+    
     // Crear mapa de semestres (ID -> Nombre)
     const semestresMap = semestresMapJson || {};
     
@@ -268,6 +327,69 @@
     console.log('📊 Tipos de ingreso disponibles:', tiposIngreso);
     console.log('📊 Semestres map:', semestresMap);
     console.log('📅 Periodo literal:', periodoLiteral);
+    console.log(`🔐 Modo de vista: ${modoVista} (Rol ID: ${idRol}, Es capturista: ${esCapturista})`);
+
+    // Mapa: Total Grupos por semestre Y turno (independiente por cada combinación semestre-turno)
+    let totalGruposPorSemestreYTurno = {};
+
+    function generarClaveTotalGrupos() {
+        const periodo = document.getElementById('periodo').value;
+        const programa = document.getElementById('programa').value;
+        const modalidad = document.getElementById('modalidad').value;
+        const turno = document.getElementById('turno').value;
+        // Ahora incluimos turno porque el valor es independiente por turno
+        return `totalgrupos_${periodo}_${programa}_${modalidad}_${turno}`;
+    }
+
+    function cargarTotalGruposDeLocalStorage() {
+        try {
+            const key = generarClaveTotalGrupos();
+            const raw = localStorage.getItem(key);
+            totalGruposPorSemestreYTurno = raw ? JSON.parse(raw) : {};
+            if (typeof totalGruposPorSemestreYTurno !== 'object' || totalGruposPorSemestreYTurno === null) {
+                totalGruposPorSemestreYTurno = {};
+            }
+        } catch (e) {
+            console.warn('No se pudo cargar totalGruposPorSemestreYTurno de localStorage', e);
+            totalGruposPorSemestreYTurno = {};
+        }
+    }
+
+    function guardarTotalGruposEnLocalStorage() {
+        try {
+            const key = generarClaveTotalGrupos();
+            localStorage.setItem(key, JSON.stringify(totalGruposPorSemestreYTurno));
+        } catch (e) {
+            console.warn('No se pudo guardar totalGruposPorSemestreYTurno en localStorage', e);
+        }
+    }
+
+    function aplicarTotalGruposParaSemestreYTurnoActual() {
+        const semestreActual = document.getElementById('semestre').value;
+        const turnoActual = document.getElementById('turno').value;
+        const inputTG = document.getElementById('input-total-grupos');
+        if (!inputTG) return;
+
+        // Generar clave única para semestre-turno
+        const claveSemestreTurno = `${semestreActual}_${turnoActual}`;
+        
+        // Valor guardado para esta combinación semestre-turno
+        const valor = totalGruposPorSemestreYTurno[claveSemestreTurno];
+        inputTG.value = (valor !== undefined && valor !== null) ? valor : '';
+
+        // Bloquear sólo si el semáforo de este semestre está en 3
+        const estado = estadosSemaforoPorSemestre[parseInt(semestreActual)];
+        const debeBloquear = parseInt(estado) === 3;
+        inputTG.disabled = !!debeBloquear;
+        inputTG.classList.toggle('input-disabled', !!debeBloquear);
+        if (debeBloquear) {
+            inputTG.title = 'Semestre finalizado (bloqueado)';
+        } else {
+            inputTG.title = '';
+        }
+        
+        console.log(`📊 Total Grupos aplicado para ${claveSemestreTurno}: ${inputTG.value}`);
+    }
 
     // Función para cargar datos existentes cuando cambien los filtros usando SP
     async function cargarDatosExistentes() {
@@ -544,8 +666,11 @@
             console.log('Número de rows:', rows.length);
             console.log('datosMap:', datosMap);
             
-            // EXTRAER Y POBLAR TOTAL GRUPOS
+            // EXTRAER Y POBLAR TOTAL GRUPOS (y sembrar mapa por semestre)
             if (rows && rows.length > 0) {
+                // Debug: mostrar columnas disponibles en la primera fila
+                console.log('🔍 Columnas disponibles en la primera fila del SP:', Object.keys(rows[0]));
+                console.log('🔍 Primera fila completa:', rows[0]);
                 // Determinar columnas
                 const turnoCandidates = ['Turno','Nombre_Turno','Id_Turno','IdTurno'];
                 const semestreCandidates = ['Semestre', 'Id_Semestre', 'IdSemestre'];
@@ -588,9 +713,14 @@
                     return true;
                 });
 
-                // Buscar 'salones' dentro del contexto filtrado
+                // Buscar 'Grupos' dentro del contexto filtrado (campo actualizado del SP modificado)
                 let totalGrupos = null;
                 for (const r of (filasContexto.length ? filasContexto : rows)) {
+                    // Prioridad: buscar columna 'Grupos' primero (nueva estructura del SP)
+                    if (r && Object.prototype.hasOwnProperty.call(r, 'Grupos')) { totalGrupos = r.Grupos; break; }
+                    if (r && Object.prototype.hasOwnProperty.call(r, 'grupos')) { totalGrupos = r.grupos; break; }
+                    if (r && Object.prototype.hasOwnProperty.call(r, 'GRUPOS')) { totalGrupos = r.GRUPOS; break; }
+                    // Fallback: buscar 'salones' para compatibilidad con versiones anteriores
                     if (r && Object.prototype.hasOwnProperty.call(r, 'salones')) { totalGrupos = r.salones; break; }
                     if (r && Object.prototype.hasOwnProperty.call(r, 'Salones')) { totalGrupos = r.Salones; break; }
                     if (r && Object.prototype.hasOwnProperty.call(r, 'SALONES')) { totalGrupos = r.SALONES; break; }
@@ -598,11 +728,30 @@
                 const totalGruposNum = (totalGrupos === null || totalGrupos === undefined || totalGrupos === '')
                     ? 0
                     : (isNaN(parseInt(totalGrupos)) ? 0 : parseInt(totalGrupos));
+                
+                console.log(`🏢 Total Grupos extraído del SP: ${totalGrupos} -> convertido a: ${totalGruposNum}`);
 
-                // Poblar el input
+                // Sembrar/actualizar almacén por semestre-turno con el valor del SP
+                try {
+                    cargarTotalGruposDeLocalStorage();
+                    const claveSemestreTurno = `${semestreActualId}_${turnoActualId}`;
+                    const prev = totalGruposPorSemestreYTurno[claveSemestreTurno];
+                    const spHasValue = !isNaN(totalGruposNum);
+                    // Regla: si no hay valor previo o es 0 y el SP trae >0, o viene diferente, actualizar
+                    if (spHasValue && (prev === undefined || prev === null || (parseInt(prev) === 0 && totalGruposNum > 0) || parseInt(prev) !== totalGruposNum)) {
+                        totalGruposPorSemestreYTurno[claveSemestreTurno] = totalGruposNum;
+                        guardarTotalGruposEnLocalStorage();
+                        console.log(`💾 Total Grupos (SP) para semestre-turno ${claveSemestreTurno}: ${totalGruposNum} (almacenado)`);
+                    }
+                } catch (e) { console.warn('No se pudo sembrar Total Grupos desde SP', e); }
+
+                // Poblar el input con el valor vigente del almacén (o el del SP si no hay)
                 const totalGruposInput = document.getElementById('input-total-grupos');
                 if (totalGruposInput) {
-                    totalGruposInput.value = String(totalGruposNum);
+                    const claveSemestreTurno = `${semestreActualId}_${turnoActualId}`;
+                    const valorAlmacen = totalGruposPorSemestreYTurno[claveSemestreTurno];
+                    const definitivo = (valorAlmacen !== undefined && valorAlmacen !== null) ? valorAlmacen : totalGruposNum;
+                    totalGruposInput.value = (definitivo !== undefined && definitivo !== null) ? String(definitivo) : '';
                 }
             }
             
@@ -1001,9 +1150,15 @@
                     const datos = edadData[tipoCategoria];
                     const tipoId = datos.tipoId;
 
-                    // Obtener valores del SP (preservar vacío vs cero explícito)
-                    const valorM = (datos.M === undefined || datos.M === null || datos.M === '') ? '' : String(datos.M);
-                    const valorF = (datos.F === undefined || datos.F === null || datos.F === '') ? '' : String(datos.F);
+                    // Obtener valores del SP (preservar cero explícito). Si el semestre está finalizado (3), mostrar 0 en ausentes
+                    const estadoSem = estadosSemaforoPorSemestre[parseInt(semestreActualId)];
+                    const mostrarCeroSiVacio = parseInt(estadoSem) === 3;
+                    const valorM = (datos.M === undefined || datos.M === null || datos.M === '') 
+                        ? (mostrarCeroSiVacio ? '0' : '') 
+                        : String(datos.M);
+                    const valorF = (datos.F === undefined || datos.F === null || datos.F === '') 
+                        ? (mostrarCeroSiVacio ? '0' : '') 
+                        : String(datos.F);
                     
                     console.log(`🎯 Generando inputs: ${tipoCategoria} - Grupo "${grupoValor}" (ID:${grupoIdBD})`);
                     console.log(`   - valorM: ${valorM} (tipo: ${typeof valorM}, isNaN: ${isNaN(valorM)})`);
@@ -1091,6 +1246,26 @@
             input.addEventListener('change', guardarDatosSemestreActual);
         });
 
+        // Bind para Total Grupos por semestre-turno
+        const tgInput = document.getElementById('input-total-grupos');
+        if (tgInput && !tgInput.dataset.bound) {
+            tgInput.addEventListener('input', () => {
+                const semestreActual = document.getElementById('semestre').value;
+                const turnoActual = document.getElementById('turno').value;
+                const claveSemestreTurno = `${semestreActual}_${turnoActual}`;
+                totalGruposPorSemestreYTurno[claveSemestreTurno] = tgInput.value;
+                guardarTotalGruposEnLocalStorage();
+            });
+            tgInput.addEventListener('change', () => {
+                const semestreActual = document.getElementById('semestre').value;
+                const turnoActual = document.getElementById('turno').value;
+                const claveSemestreTurno = `${semestreActual}_${turnoActual}`;
+                totalGruposPorSemestreYTurno[claveSemestreTurno] = tgInput.value;
+                guardarTotalGruposEnLocalStorage();
+            });
+            tgInput.dataset.bound = '1';
+        }
+
         // Si se pasó un datosMap, poblar valores
         if (datosMap) {
             for (let key in datosMap) {
@@ -1123,9 +1298,18 @@
             }
         }, 100); // Pequeño delay para asegurar que los inputs estén renderizados
 
-        calcularTotales();
-        // Si el semestre actual ya fue finalizado (semaforo=3), bloquear edición
-        aplicarBloqueoPorSemaforo();
+    calcularTotales();
+    // Cargar Total Grupos del semestre-turno y aplicar bloqueo si corresponde
+    cargarTotalGruposDeLocalStorage();
+    aplicarTotalGruposParaSemestreYTurnoActual();
+    // Si el semestre actual ya fue finalizado (semaforo=3), bloquear edición
+    aplicarBloqueoPorSemaforo();
+    
+    // NUEVO: Inicializar sistema de validación por turnos
+    inicializarSistemaValidacionTurnos();
+    
+    // NUEVO: Aplicar modo de vista según el rol
+    aplicarModoVista();
     }
 
     function calcularTotales() {
@@ -1449,6 +1633,11 @@
         
         // Recargar datos con el nuevo turno
         cargarDatosExistentes();
+        
+        // Actualizar Total Grupos para el nuevo contexto turno-semestre
+        setTimeout(() => {
+            aplicarTotalGruposParaSemestreYTurnoActual();
+        }, 100);
     }
 
     // Función para determinar el estado de progreso de un semestre
@@ -1640,6 +1829,12 @@
         
         // Recargar datos
         cargarDatosExistentes();
+        // Aplicar Total Grupos correspondiente después de que lleguen los datos
+        setTimeout(() => {
+            aplicarTotalGruposParaSemestreYTurnoActual();
+            // Aplicar bloqueo de botones según el estado del semestre seleccionado
+            aplicarBloqueoPorSemaforo();
+        }, 150);
     }
 
     // Función que habilita/inhabilita inputs según el semestre seleccionado
@@ -1653,18 +1848,25 @@
 
             let shouldDisable = false;
             let tooltipMessage = '';
-
-            if (parseInt(semestreNum) === 1) {
-                // Bloquear Reingreso (tipo 2) en semestre 1
-                if (tipo === '2') {
-                    shouldDisable = true;
-                    tooltipMessage = 'Reingreso no aplica en Semestre 1';
-                }
+            // Si el semestre ya está finalizado (semaforo=3) deshabilitar TODOS preservando valores
+            const estadoSemaforo = estadosSemaforoPorSemestre[parseInt(semestreNum)];
+            if (parseInt(estadoSemaforo) === 3) {
+                shouldDisable = true;
+                tooltipMessage = 'Semestre finalizado';
             } else {
-                // En cualquier otro semestre, bloquear Nuevo Ingreso (tipo 1)
-                if (tipo === '1') {
-                    shouldDisable = true;
-                    tooltipMessage = `Nuevo Ingreso no aplica en Semestre ${semestreNum}`;
+                // Lógica anterior condicional (podría ajustarse o eliminarse si ya no aplica)
+                if (parseInt(semestreNum) === 1) {
+                    // Bloquear Reingreso (tipo 2) en semestre 1
+                    if (tipo === '2') {
+                        shouldDisable = true;
+                        tooltipMessage = 'Reingreso no aplica en Semestre 1';
+                    }
+                } else {
+                    // En cualquier otro semestre, bloquear Nuevo Ingreso (tipo 1)
+                    if (tipo === '1') {
+                        shouldDisable = true;
+                        tooltipMessage = `Nuevo Ingreso no aplica en Semestre ${semestreNum}`;
+                    }
                 }
             }
 
@@ -1672,7 +1874,10 @@
                 input.disabled = true;
                 input.classList.add('input-disabled');
                 input.title = tooltipMessage;
-                input.value = ''; // Limpiar valor si se deshabilita
+                // No limpiar el valor si es por semáforo finalizado, conservar lo traído del SP
+                if (tooltipMessage !== 'Semestre finalizado') {
+                    input.value = ''; // Sólo limpiar si es por regla de tipo ingreso
+                }
                 
                 // Agregar indicador visual al contenedor padre
                 const container = input.closest('.matricula-box');
@@ -1703,6 +1908,13 @@
         inputs.forEach(input => {
             input.disabled = true;
             input.classList.add('input-disabled');
+            const container = input.closest('.matricula-box');
+            if (container) {
+                container.classList.add('input-container-disabled');
+                if (!container.getAttribute('data-tooltip')) {
+                    container.setAttribute('data-tooltip', 'Semestre finalizado (bloqueado)');
+                }
+            }
         });
         const totalGruposInput = document.getElementById('input-total-grupos');
         if (totalGruposInput) {
@@ -1716,8 +1928,25 @@
     function aplicarBloqueoPorSemaforo() {
         const semestreActual = parseInt(document.getElementById('semestre').value);
         const estado = estadosSemaforoPorSemestre[semestreActual];
+        const btnGuardar = document.getElementById('btn-guardar-matricula');
+        const btnLimpiar = document.getElementById('btn-limpiar-formulario');
+        const btnValidar = document.getElementById('btn-validar-matricula');
+        const btnInforme = document.getElementById('btn-ver-informe');
+        
         if (parseInt(estado) === 3) {
+            // Bloquear todos los inputs de matrícula (incluye ambos turnos conceptualmente porque se recrean por turno)
             deshabilitarTodaLaVista();
+            // Bloquear también el Total Grupos de este semestre-turno
+            aplicarTotalGruposParaSemestreYTurnoActual();
+            // Deshabilitar botones de acción excepto informe
+            [btnGuardar, btnLimpiar, btnValidar].forEach(b => { if (b) { b.disabled = true; b.classList.add('input-disabled'); }});
+            if (btnInforme) { btnInforme.disabled = false; btnInforme.classList.remove('input-disabled'); }
+            console.log('🛑 Semestre finalizado: botones Guardar/Limpiar/Validar deshabilitados, Informe activo.');
+        } else {
+            // Rehabilitar botones si el semestre NO está finalizado
+            [btnGuardar, btnLimpiar, btnValidar].forEach(b => { if (b) { b.disabled = false; b.classList.remove('input-disabled'); }});
+            if (btnInforme) { btnInforme.disabled = false; btnInforme.classList.remove('input-disabled'); }
+            console.log('✅ Semestre activo: todos los botones habilitados.');
         }
     }
 
@@ -2032,6 +2261,16 @@
                     console.log(`🔄 Cambió ${filtroId}, limpiando datos guardados`);
                     datosMatriculaPorSemestre = {};
                     
+                    // NUEVO: Limpiar turnos validados
+                    turnosValidadosPorSemestre = {};
+                    try {
+                        const key = `turnos_validados_${document.getElementById('periodo').value}_${document.getElementById('programa').value}_${document.getElementById('modalidad').value}`;
+                        localStorage.removeItem(key);
+                        console.log('🗑️ Turnos validados limpiados de localStorage');
+                    } catch (e) {
+                        console.warn('No se pudo limpiar turnos validados de localStorage', e);
+                    }
+                    
                     // Limpiar atributos data-auto-filled de todos los inputs
                     const inputs = document.querySelectorAll('input.input-matricula-nueva');
                     inputs.forEach(input => {
@@ -2044,7 +2283,10 @@
                         totalGruposInput.value = '';
                     }
                     
-                    console.log('🗑️ Datos de matrícula, Total Grupos y marcadores auto-filled limpiados por cambio de contexto');
+                    console.log('🗑️ Datos de matrícula, Total Grupos, marcadores auto-filled y turnos validados limpiados por cambio de contexto');
+                    
+                    // Reinicializar botón de validar
+                    reinicializarBotonValidar();
                     
                     // Cargar nuevos datos
                     cargarDatosExistentes();
@@ -2090,85 +2332,325 @@
         }
     }
 
-    // Función para validar y finalizar la captura del semestre actual
-    async function validarCapturaSemestre() {
-        console.log('🔍 === VALIDANDO CAPTURA DEL SEMESTRE ===');
-        
-        // Obtener el semestre actual
+    // ===== NUEVO SISTEMA: VALIDACIÓN POR TURNOS CON EJECUCIÓN CONSOLIDADA =====
+    
+    // Estructura para rastrear turnos validados por semestre
+    let turnosValidadosPorSemestre = {};
+    
+    // Cargar turnos validados desde localStorage
+    function cargarTurnosValidadosDeLocalStorage() {
+        try {
+            const key = `turnos_validados_${document.getElementById('periodo').value}_${document.getElementById('programa').value}_${document.getElementById('modalidad').value}`;
+            const raw = localStorage.getItem(key);
+            turnosValidadosPorSemestre = raw ? JSON.parse(raw) : {};
+            console.log('📂 Turnos validados cargados:', turnosValidadosPorSemestre);
+        } catch (e) {
+            console.warn('No se pudo cargar turnos validados de localStorage', e);
+            turnosValidadosPorSemestre = {};
+        }
+    }
+    
+    // Inicializar el sistema de validación por turnos
+    function inicializarSistemaValidacionTurnos() {
+        cargarTurnosValidadosDeLocalStorage();
+        aplicarEstadoValidacionTurnos();
+    }
+    
+    // Aplicar el estado de validación a los turnos (bloquear los ya validados)
+    function aplicarEstadoValidacionTurnos() {
         const semestreActual = parseInt(document.getElementById('semestre').value);
-        const semestreNombre = semestresMap[semestreActual] || `Semestre ${semestreActual}`;
+        const turnoActual = parseInt(document.getElementById('turno').value);
         
-        // Obtener todos los inputs
+        // Verificar si el turno actual ya está validado
+        const turnoYaValidado = turnosValidadosPorSemestre[semestreActual]?.includes(turnoActual);
+        
+        if (turnoYaValidado) {
+            console.log(`🔒 Turno ${turnoActual} del semestre ${semestreActual} ya está validado - aplicando bloqueo PERMANENTE`);
+            
+            // Bloquear todos los inputs del turno
+            const inputs = document.querySelectorAll('input.input-matricula-nueva');
+            inputs.forEach(input => {
+                input.disabled = true;
+                input.classList.add('input-disabled');
+            });
+            
+            // Bloquear también el input de Total Grupos
+            const totalGruposInput = document.getElementById('input-total-grupos');
+            if (totalGruposInput) {
+                totalGruposInput.disabled = true;
+                totalGruposInput.classList.add('input-disabled');
+            }
+            
+            // Bloquear botón de validar
+            const btnValidar = document.getElementById('btn-validar-matricula');
+            if (btnValidar) {
+                btnValidar.disabled = true;
+                btnValidar.classList.add('input-disabled');
+                btnValidar.textContent = '✅ Turno Validado';
+            }
+            
+            // Bloquear botón de guardar avance
+            const btnGuardar = document.getElementById('btn-guardar-matricula');
+            if (btnGuardar) {
+                btnGuardar.disabled = true;
+                btnGuardar.classList.add('input-disabled');
+            }
+            
+            // Verificar si todos los turnos del semestre están validados
+            if (todosTurnosValidados(semestreActual)) {
+                console.log('🎉 Todos los turnos del semestre están validados');
+                // El botón de SP final ya no es necesario - se eliminó
+            }
+        }
+    }
+    
+    // Reinicializar botón de validar
+    function reinicializarBotonValidar() {
+        const btnValidar = document.getElementById('btn-validar-matricula');
+        if (btnValidar) {
+            btnValidar.disabled = false;
+            btnValidar.classList.remove('input-disabled');
+            btnValidar.textContent = 'Validar Captura';
+        }
+    }
+    
+    // Guardar turnos validados en localStorage
+    function guardarTurnosValidadosEnLocalStorage() {
+        try {
+            const key = `turnos_validados_${document.getElementById('periodo').value}_${document.getElementById('programa').value}_${document.getElementById('modalidad').value}`;
+            localStorage.setItem(key, JSON.stringify(turnosValidadosPorSemestre));
+        } catch (e) {
+            console.warn('No se pudo guardar turnos validados en localStorage', e);
+        }
+    }
+    
+    // Marcar turno como validado (sin ejecutar SP)
+    function marcarTurnoComoValidado(semestre, turno) {
+        if (!turnosValidadosPorSemestre[semestre]) {
+            turnosValidadosPorSemestre[semestre] = [];
+        }
+        if (!turnosValidadosPorSemestre[semestre].includes(turno)) {
+            turnosValidadosPorSemestre[semestre].push(turno);
+            guardarTurnosValidadosEnLocalStorage();
+        }
+    }
+    
+    // Verificar si todos los turnos de un semestre están validados
+    function todosTurnosValidados(semestre) {
+        const turnosDelSemestre = turnosValidadosPorSemestre[semestre] || [];
+        const turnosDisponiblesIds = (turnosDisponibles || []).map(t => parseInt(t.Id_Turno));
+        return turnosDisponiblesIds.every(turnoId => turnosDelSemestre.includes(turnoId));
+    }
+    
+    // Función para ejecutar el SP final cuando todos los turnos están listos
+    async function ejecutarSPFinalSemestre(semestreActual, periodo, programa, modalidad, semestre) {
+        console.log('🚀 === EJECUTANDO SP FINAL DEL SEMESTRE ===');
+        
+        try {
+            // Obtener Total Grupos del semestre (puede ser de cualquier turno ya que es por semestre)
+            const claveSemestreTurno = Object.keys(totalGruposPorSemestreYTurno)
+                .find(key => key.startsWith(`${semestreActual}_`));
+            const totalGrupos = claveSemestreTurno ? totalGruposPorSemestreYTurno[claveSemestreTurno] : 0;
+            
+            console.log(`📊 Ejecutando SP final con Total Grupos: ${totalGrupos}`);
+            
+            // Ejecutar el SP de validación final (el que actualiza el semáforo)
+            // NOTA: NO se envía 'turno' porque el SP procesa TODO el semestre
+            const response = await fetch('/matricula/validar_captura_semestre', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    periodo: periodo,
+                    programa: programa,
+                    modalidad: modalidad,
+                    semestre: semestre,
+                    total_grupos: totalGrupos
+                })
+            });
+            
+            const resultado = await response.json();
+            console.log('📥 Respuesta del SP final:', resultado);
+            
+            if (resultado.error) {
+                console.error('❌ Error en el SP final:', resultado.error);
+                alert(`❌ Error al ejecutar el SP final:\n\n${resultado.error}`);
+                return;
+            }
+            
+            if (resultado.success) {
+                console.log('✅ SP final ejecutado exitosamente!');
+                
+                // Actualizar estado del semáforo
+                const estadoVerificado = (typeof resultado.estado_semaforo === 'number') ? resultado.estado_semaforo : null;
+                
+                if (estadoVerificado === 3) {
+                    // Marcar semestre como completado
+                    marcarSemestreComoValidado(semestreActual);
+                    console.log(`🚦 Semestre ${semestreActual} marcado como COMPLETADO (estado: ${estadoVerificado})`);
+                    
+                    // Bloquear toda la vista del semestre
+                    deshabilitarTodaLaVista();
+                    
+                    // Deshabilitar botones de acción excepto informe
+                    const btnGuardar = document.getElementById('btn-guardar-matricula');
+                    const btnLimpiar = document.getElementById('btn-limpiar-formulario');
+                    const btnValidar = document.getElementById('btn-validar-matricula');
+                    const btnInforme = document.getElementById('btn-ver-informe');
+                    
+                    [btnGuardar, btnLimpiar, btnValidar].forEach(b => {
+                        if (b) {
+                            b.disabled = true;
+                            b.classList.add('input-disabled');
+                        }
+                    });
+                    
+                    if (btnInforme) {
+                        btnInforme.disabled = false;
+                        btnInforme.classList.remove('input-disabled');
+                    }
+                    
+                    console.log('🔒 Vista bloqueada - semestre completado');
+                }
+                
+                // Actualizar colores de pestañas
+                actualizarColoresPestanas();
+                
+                // Procesar datos actualizados del SP si están disponibles
+                if (resultado.rows && resultado.rows.length > 0) {
+                    console.log('🔄 Procesando datos actualizados del SP final...');
+                    procesarEstadosSemaforoDelSP(resultado.rows);
+                    procesarYGuardarDatosPorSemestre(resultado.rows);
+                    actualizarColoresPestanas();
+                }
+                
+                // Mensaje de éxito
+                const semestreNombre = semestresMap[semestreActual] || `Semestre ${semestreActual}`;
+                let mensajeEstado = '';
+                
+                if (estadoVerificado === 3) {
+                    mensajeEstado = '🟢 El semestre ha sido marcado como COMPLETADO';
+                } else if (estadoVerificado === 2) {
+                    mensajeEstado = '🟡 El semestre tiene datos parciales';
+                } else if (estadoVerificado === 1) {
+                    mensajeEstado = '🔴 El semestre sigue sin datos';
+                } else {
+                    mensajeEstado = 'No se pudo confirmar el estado del semáforo';
+                }
+                
+                alert(`🎉 ¡SP FINAL EJECUTADO EXITOSAMENTE!\n\n` +
+                    `✅ ${semestreNombre} consolidado completamente\n` +
+                    `${mensajeEstado}\n\n` +
+                    `📊 Todos los turnos han sido procesados\n` +
+                    `🔒 El semestre está ahora bloqueado para edición\n\n` +
+                    `¡Proceso completado!`);
+                
+                console.log('✅ SP final completado exitosamente');
+                
+            } else {
+                console.warn('⚠️ Respuesta inesperada del SP final');
+                alert('⚠️ No se pudo confirmar la ejecución del SP final.');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error al ejecutar SP final:', error);
+            alert(`❌ Error al ejecutar el SP final:\n\n${error.message}`);
+        }
+    }
+    
+    // Función para validar y finalizar la captura del semestre actual - NUEVO SISTEMA DE DOS FASES
+    async function validarCapturaSemestre() {
+        console.log('🔍 === VALIDANDO TURNO INDIVIDUAL (NUEVA LÓGICA) ===');
+        
+        // Cargar turnos validados desde localStorage
+        cargarTurnosValidadosDeLocalStorage();
+        
+        // Obtener el semestre y turno actual
+        const semestreActual = parseInt(document.getElementById('semestre').value);
+        const turnoActual = parseInt(document.getElementById('turno').value);
+        const semestreNombre = semestresMap[semestreActual] || `Semestre ${semestreActual}`;
+        const turnoNombre = turnosDisponibles.find(t => parseInt(t.Id_Turno) === turnoActual)?.Turno || `Turno ${turnoActual}`;
+        
+        console.log(`🎯 Procesando: ${semestreNombre} - ${turnoNombre}`);
+        
+        // Obtener todos los inputs del turno actual
         const inputs = document.querySelectorAll('input.input-matricula-nueva');
         
-        // PASO 1: Rellenar campos vacíos con '0'
+        // FASE 1: VALIDACIÓN DEL TURNO (con SP de Unidad Académica)
+        console.log('📋 === FASE 1: VALIDACIÓN DEL TURNO INDIVIDUAL ===');
+        
+        // Aplicar reglas de habilitación/deshabilitación
+        updateInputsBySemestre(semestreActual);
+        
+        // Rellenar campos vacíos con '0'
         let camposRellenados = 0;
-        inputs.forEach(input => {
-            if (!input.value || input.value.trim() === '') {
+        let camposDeshabilitados = 0;
+        let camposYaConValor = 0;
+        
+        inputs.forEach((input, index) => {
+            const inputId = input.id || `input-${index}`;
+            const disabled = input.disabled;
+            const currentValue = input.value;
+            const isEmpty = !currentValue || currentValue.trim() === '';
+            
+            if (disabled) {
+                camposDeshabilitados++;
+                return;
+            }
+            
+            if (isEmpty) {
                 input.value = '0';
-                // Marcar como auto-rellenado
                 input.setAttribute('data-auto-filled', 'true');
                 camposRellenados++;
+                console.log(`    ✅ Rellenado con '0': ${inputId}`);
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            } else {
+                camposYaConValor++;
             }
         });
         
+        console.log(`📋 Resumen preparación: ${camposRellenados} campos rellenados, ${camposYaConValor} ya tenían valor`);
+        
         if (camposRellenados > 0) {
-            console.log(`📝 Se rellenaron ${camposRellenados} campos vacíos con '0'`);
+            calcularTotales();
         }
         
-        // PASO 2: Contar datos (ahora incluyendo los 0)
+        // Contar datos totales del turno
         let totalDatos = 0;
         let camposConDatos = 0;
-        let camposConCero = 0;
         
         inputs.forEach(input => {
+            if (input.disabled) return;
             const valor = parseInt(input.value) || 0;
             totalDatos += valor;
-            
-            if (valor > 0) {
-                camposConDatos++;
-            } else if (valor === 0) {
-                camposConCero++;
-            }
+            if (valor > 0) camposConDatos++;
         });
         
-        console.log(`📊 Estadísticas:`);
-        console.log(`   - Campos con datos (>0): ${camposConDatos}`);
-        console.log(`   - Campos en cero: ${camposConCero}`);
-        console.log(`   - Total de estudiantes: ${totalDatos}`);
-        console.log(`   - Campos rellenados automáticamente: ${camposRellenados}`);
+        // Confirmación para validar el turno
+        const mensajePreparacion = `¿Desea validar el turno ${turnoNombre} del ${semestreNombre}?\n\n` +
+            `📊 Campos con datos: ${camposConDatos}\n` +
+            `📈 Total de estudiantes: ${totalDatos}\n` +
+            (camposRellenados > 0 ? `✏️ Se rellenaron ${camposRellenados} campos vacíos con '0'\n` : '') +
+            `\n⚠️ Esta acción:\n` +
+            `• Guardará los datos de este turno\n` +
+            `• Ejecutará SP_Actualiza_Matricula_Por_Unidad_Academica\n` +
+            `• Bloqueará PERMANENTEMENTE los inputs de este turno\n` +
+            `• El turno no se podrá editar después de validar\n` +
+            `• El SP final (por semestre) se ejecutará cuando todos los turnos estén validados\n\n` +
+            `¿Continuar?`;
         
-        // PASO 3: Confirmar con el usuario
-        let mensajeConfirmacion = `¿Desea validar y finalizar la captura del ${semestreNombre}?\n\n`;
-        mensajeConfirmacion += `📊 Campos con datos: ${camposConDatos}\n`;
-        mensajeConfirmacion += `📈 Total de estudiantes: ${totalDatos}\n`;
-        
-        if (camposRellenados > 0) {
-            mensajeConfirmacion += `\n✏️ Se rellenaron ${camposRellenados} campos vacíos con '0'\n`;
-        }
-        
-        mensajeConfirmacion += `\n⚠️ Esta acción:\n`;
-        mensajeConfirmacion += `• Guardará todos los datos en la base de datos (incluyendo ceros)\n`;
-        mensajeConfirmacion += `• Marcará el semestre como COMPLETADO (🟢)\n`;
-        mensajeConfirmacion += `• Registrará la validación en bitácora\n\n`;
-        mensajeConfirmacion += `¿Continuar?`;
-        
-        const confirmar = confirm(mensajeConfirmacion);
-        
-        if (!confirmar) {
-            console.log('❌ Usuario canceló la validación');
+        if (!confirm(mensajePreparacion)) {
+            console.log('❌ Usuario canceló la validación del turno');
             return;
         }
         
-        // PASO 4: Recalcular totales con los nuevos valores
-        calcularTotales();
-        
-        // Obtener parámetros antes de guardar
+        // Obtener parámetros
         const periodo = document.getElementById('periodo').value;
         const programa = document.getElementById('programa').value;
         const modalidad = document.getElementById('modalidad').value;
         const semestre = document.getElementById('semestre').value;
         const turno = document.getElementById('turno').value;
+        const totalGruposInput = document.getElementById('input-total-grupos');
+        const totalGrupos = totalGruposInput ? parseInt(totalGruposInput.value) || 0 : 0;
         
         if (!periodo || !programa || !modalidad || !semestre || !turno) {
             alert('⚠️ Por favor, complete todos los filtros antes de validar.');
@@ -2178,18 +2660,19 @@
         // Mostrar indicador de carga
         const btnValidar = event.target;
         const textoOriginal = btnValidar.textContent;
-        btnValidar.textContent = '⏳ Guardando datos...';
+        btnValidar.textContent = '⏳ Validando turno...';
         btnValidar.disabled = true;
         
         try {
-            // PASO 5: PRIMERO guardar TODOS los datos en la base de datos
-            console.log('💾 === GUARDANDO DATOS EN LA BASE DE DATOS ===');
+            // Guardar datos del turno en la base de datos
+            console.log('💾 Guardando datos del turno en la base de datos...');
             
-            // Obtener valor de Total Grupos
-            const totalGruposInput = document.getElementById('input-total-grupos');
-            const totalGrupos = totalGruposInput ? parseInt(totalGruposInput.value) || 0 : 0;
+            // Persistir Total Grupos en estructura por semestre-turno
+            const claveSemestreTurno = `${semestreActual}_${turnoActual}`;
+            totalGruposPorSemestreYTurno[claveSemestreTurno] = totalGrupos;
+            guardarTotalGruposEnLocalStorage();
             
-            // Preparar datos para guardar (igual que en guardarMatricula)
+            // Preparar datos para guardar
             const data = {
                 periodo: periodo,
                 programa: programa,
@@ -2200,18 +2683,14 @@
                 datos_matricula: {}
             };
             
-            // Recopilar datos solo de inputs válidos (no deshabilitados y con datos reales)
+            // Recopilar datos de inputs habilitados
             inputs.forEach(input => {
-                // Solo procesar si el input NO está deshabilitado
                 if (!input.disabled) {
                     const tipoIngreso = input.getAttribute('data-tipo-ingreso');
                     const grupoEdad = input.getAttribute('data-grupo-edad');
                     const sexo = input.getAttribute('data-sexo');
                     const inputValue = input.value ? input.value.trim() : '';
                     
-                    // Solo enviar si:
-                    // 1. El usuario realmente puso un valor (incluyendo '0')
-                    // 2. O fue auto-rellenado por el botón
                     const isAutoFilled = input.hasAttribute('data-auto-filled');
                     const hasUserValue = inputValue !== '';
                     
@@ -2232,142 +2711,163 @@
                 }
             });
             
-            console.log(`📤 Enviando ${Object.keys(data.datos_matricula).length} registros a la base de datos...`);
-            
             // Guardar datos en Temp_Matricula
             const saveResponse = await fetch('/matricula/guardar_captura_completa', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
             
             const saveResult = await saveResponse.json();
-            console.log('💾 Respuesta del guardado:', saveResult);
             
             if (saveResult.error) {
                 console.error('❌ Error al guardar datos:', saveResult.error);
-                alert(`❌ Error al guardar los datos:\n\n${saveResult.error}\n\nNo se puede continuar con la validación.`);
+                alert(`❌ Error al guardar los datos:\n\n${saveResult.error}`);
                 return;
             }
             
-            console.log('✅ Datos guardados exitosamente en Temp_Matricula');
-            console.log(`📊 Registros guardados: ${saveResult.registros_guardados || 'N/A'}`);
+            console.log('✅ Datos del turno guardados exitosamente');
             
-            // PASO 5.1: Actualizar Matricula desde Temp_Matricula
-            console.log('🔄 === ACTUALIZANDO TABLA MATRICULA ===');
-            btnValidar.textContent = '⏳ Actualizando matrícula...';
-            
+            // Actualizar Matricula desde Temp_Matricula
             const updateResponse = await fetch('/matricula/actualizar_matricula', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({})
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    periodo: periodo,
+                    total_grupos: totalGrupos
+                })
             });
             
             const updateResult = await updateResponse.json();
-            console.log('🔄 Respuesta de actualización:', updateResult);
             
             if (updateResult.error) {
                 console.error('❌ Error al actualizar Matricula:', updateResult.error);
-                alert(`❌ Error al actualizar la tabla Matricula:\n\n${updateResult.error}\n\nLos datos están en Temp_Matricula pero no se movieron a Matricula.`);
+                alert(`❌ Error al actualizar la tabla Matricula:\n\n${updateResult.error}`);
                 return;
             }
             
             console.log('✅ Tabla Matricula actualizada exitosamente');
-            console.log(`📊 ${updateResult.mensaje || 'Actualización completada'}`);
             
-            // Pequeña pausa para asegurar que se completó la transacción
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // NUEVO: Llamar al endpoint de preparación de turno (sin ejecutar SP)
+            console.log('📝 Marcando turno como preparado en el backend...');
+            btnValidar.textContent = '⏳ Preparando turno...';
             
-            // PASO 6: Ahora SÍ validar y finalizar (solo actualiza semáforo)
-            console.log('🚀 === VALIDANDO Y FINALIZANDO CAPTURA ===');
-            btnValidar.textContent = '⏳ Validando y finalizando...';
-            
-            const response = await fetch('/matricula/validar_captura_semestre', {
+            const prepararResponse = await fetch('/matricula/preparar_turno', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     periodo: periodo,
                     programa: programa,
                     modalidad: modalidad,
                     semestre: semestre,
-                    turno: turno
+                    turno: turno,
+                    total_grupos: totalGrupos
                 })
             });
             
-            const resultado = await response.json();
-            console.log('📥 Respuesta del backend:', resultado);
+            const prepararResult = await prepararResponse.json();
             
-            if (resultado.error) {
-                console.error('❌ Error del backend:', resultado.error);
-                alert(`❌ Error al validar la captura:\n\n${resultado.error}`);
+            if (prepararResult.error) {
+                console.error('❌ Error al preparar turno:', prepararResult.error);
+                alert(`❌ Error al preparar el turno:\n\n${prepararResult.error}`);
                 return;
             }
             
-            if (resultado.success) {
-                console.log('✅ Validación exitosa!');
+            console.log('✅ Turno validado en el backend (SP de Unidad Académica ejecutado)');
+            console.log(`📋 Fase: ${prepararResult.fase}`);
+            console.log(`� SP ejecutado: ${prepararResult.sp_ejecutado}`);
+            
+            // Marcar turno como validado (preparado)
+            marcarTurnoComoValidado(semestreActual, turnoActual);
+            
+            // Bloquear inputs del turno actual PERMANENTEMENTE
+            inputs.forEach(input => {
+                input.disabled = true;
+                input.classList.add('input-disabled');
+            });
+            
+            // Bloquear también el input de Total Grupos
+            if (totalGruposInput) {
+                totalGruposInput.disabled = true;
+                totalGruposInput.classList.add('input-disabled');
+            }
+            
+            // Bloquear botón de validar para este turno PERMANENTEMENTE
+            btnValidar.disabled = true;
+            btnValidar.classList.add('input-disabled');
+            btnValidar.textContent = '✅ Turno Validado';
+            
+            // Bloquear también el botón de Guardar Avance
+            const btnGuardar = document.getElementById('btn-guardar-matricula');
+            if (btnGuardar) {
+                btnGuardar.disabled = true;
+                btnGuardar.classList.add('input-disabled');
+            }
+            
+            console.log(`✅ Turno ${turnoNombre} validado y bloqueado PERMANENTEMENTE`);
+            
+            // FASE 2: VERIFICAR SI TODOS LOS TURNOS ESTÁN LISTOS
+            console.log('🔍 === FASE 2: VERIFICACIÓN DE COMPLETITUD ===');
+            
+            if (todosTurnosValidados(semestreActual)) {
+                console.log('🎉 ¡Todos los turnos del semestre están validados!');
                 
-                // Actualizar estado del semáforo usando el valor verificado del backend
-                const estadoVerificado = resultado.estado_semaforo || 3;
+                // Mostrar confirmación para ejecutar SP final
+                const mensajeFinal = `🎉 ¡TODOS LOS TURNOS DEL ${semestreNombre.toUpperCase()} ESTÁN COMPLETOS!\n\n` +
+                    `Los siguientes turnos han sido validados:\n` +
+                    turnosValidadosPorSemestre[semestreActual].map(tId => {
+                        const t = turnosDisponibles.find(turno => parseInt(turno.Id_Turno) === tId);
+                        return `• ${t?.Turno || `Turno ${tId}`}`;
+                    }).join('\n') +
+                    `\n\n¿Desea ejecutar el procedimiento almacenado final para consolidar todo el semestre?\n\n` +
+                    `⚠️ Esta acción:\n` +
+                    `• Ejecutará el SP de matrícula por semestre\n` +
+                    `• Actualizará el semáforo del semestre\n` +
+                    `• Marcará el semestre como COMPLETADO\n` +
+                    `• Esta acción NO se puede deshacer\n\n` +
+                    `¿Continuar con la consolidación final?`;
                 
-                // Usar la función de persistencia para marcar el semestre
-                marcarSemestreComoValidado(semestreActual);
-                console.log(`🚦 Semestre ${semestreActual} actualizado con estado verificado: ${estadoVerificado} (guardado en memoria y localStorage)`);
-                
-                if (estadoVerificado === 3) {
-                    console.log('🟢 Confirmación: Semestre marcado como COMPLETADO en la base de datos');
-                    // Bloquear toda la edición en la vista al finalizar captura
-                    deshabilitarTodaLaVista();
+                if (confirm(mensajeFinal)) {
+                    await ejecutarSPFinalSemestre(semestreActual, periodo, programa, modalidad, semestre);
                 } else {
-                    console.warn(`⚠️ Advertencia: Estado del semestre es ${estadoVerificado}, no 3 (completado)`);
+                    console.log('❌ Usuario canceló la ejecución del SP final');
+                    alert(`✅ Turno ${turnoNombre} validado exitosamente.\n\n` +
+                        `🔧 SP ejecutado: SP_Actualiza_Matricula_Por_Unidad_Academica\n` +
+                        `🔒 El turno está bloqueado permanentemente\n\n` +
+                        `⚠️ Todos los turnos están listos, pero NO se ejecutó el SP final.\n` +
+                        `El semestre NO está completado aún.\n\n` +
+                        `Para consolidar el semestre, deberá validar cualquier turno nuevamente\n` +
+                        `y aceptar la ejecución del SP final cuando se le pregunte.`);
                 }
-                
-                // Actualizar colores de pestañas
-                actualizarColoresPestanas();
-                
-                // Mensaje de éxito personalizado según el estado
-                let mensajeEstado = '';
-                if (estadoVerificado === 3) {
-                    mensajeEstado = '🟢 El semestre ha sido marcado como COMPLETADO';
-                } else if (estadoVerificado === 2) {
-                    mensajeEstado = '🟡 El semestre tiene datos parciales';
-                } else {
-                    mensajeEstado = `Estado del semestre: ${estadoVerificado}`;
-                }
-                
-                alert(
-                    `✅ ${resultado.mensaje || 'Captura validada exitosamente'}\n\n` +
-                    `${mensajeEstado}\n` +
-                    `📊 Total de estudiantes: ${totalDatos}\n\n` +
-                    `Los datos han sido guardados en la base de datos.`
-                );
-                
-                // Si el SP devolvió datos actualizados, reprocesarlos
-                if (resultado.rows && resultado.rows.length > 0) {
-                    console.log('🔄 Procesando datos actualizados del SP...');
-                    procesarEstadosSemaforoDelSP(resultado.rows);
-                    procesarYGuardarDatosPorSemestre(resultado.rows);
-                    actualizarColoresPestanas();
-                }
-                
-                console.log('✅ Validación completada exitosamente');
             } else {
-                console.warn('⚠️ Respuesta inesperada del backend');
-                alert('⚠️ No se pudo confirmar la validación. Por favor, verifique los datos.');
+                console.log('⏳ Aún faltan turnos por validar en este semestre');
+                const turnosFaltantes = (turnosDisponibles || [])
+                    .filter(t => {
+                        const tId = parseInt(t.Id_Turno);
+                        return !turnosValidadosPorSemestre[semestreActual]?.includes(tId);
+                    })
+                    .map(t => t.Turno)
+                    .join(', ');
+                
+                alert(`✅ Turno ${turnoNombre} validado exitosamente.\n\n` +
+                    `� SP ejecutado: SP_Actualiza_Matricula_Por_Unidad_Academica\n` +
+                    `🔒 El turno está bloqueado permanentemente\n\n` +
+                    `�📋 Turnos pendientes: ${turnosFaltantes}\n\n` +
+                    `⚠️ Cuando valides todos los turnos, se ejecutará automáticamente\n` +
+                    `el SP_Actualiza_Matricula_Por_Semestre_AU para consolidar el semestre.`);
             }
             
         } catch (error) {
-            console.error('❌ Error en la petición:', error);
-            alert(`❌ Error al validar la captura:\n\n${error.message}`);
+            console.error('❌ Error en la preparación del turno:', error);
+            alert(`❌ Error al preparar el turno:\n\n${error.message}`);
         } finally {
-            // Restaurar botón
-            btnValidar.textContent = textoOriginal;
-            btnValidar.disabled = false;
+            // Si el turno no está completamente validado, restaurar botón
+            if (!turnosValidadosPorSemestre[semestreActual]?.includes(turnoActual)) {
+                btnValidar.textContent = textoOriginal;
+                btnValidar.disabled = false;
+            } else {
+                btnValidar.textContent = '✅ Turno Validado';
+            }
         }
     }
 
@@ -2380,6 +2880,178 @@
             }
         });
     });
+    
+    // ===== FUNCIONES PARA MODO DE VISTA SEGÚN ROL =====
+    
+    // Aplicar modo de vista (solo lectura para roles de validación)
+    function aplicarModoVista() {
+        console.log(`🔐 Aplicando modo de vista: ${modoVista}`);
+        
+        if (!esCapturista) {
+            console.log('👁️ Modo validación activado - Deshabilitando edición');
+            
+            // Deshabilitar TODOS los inputs de matrícula
+            const inputs = document.querySelectorAll('input.input-matricula-nueva');
+            inputs.forEach(input => {
+                input.disabled = true;
+                input.classList.add('input-disabled');
+                input.style.backgroundColor = '#f0f0f0';
+                input.style.cursor = 'not-allowed';
+            });
+            
+            // Deshabilitar input de Total Grupos
+            const totalGruposInput = document.getElementById('input-total-grupos');
+            if (totalGruposInput) {
+                totalGruposInput.disabled = true;
+                totalGruposInput.classList.add('input-disabled');
+                totalGruposInput.style.backgroundColor = '#f0f0f0';
+                totalGruposInput.style.cursor = 'not-allowed';
+            }
+            
+            // Deshabilitar filtros (solo lectura)
+            const filtros = ['periodo', 'programa', 'modalidad', 'semestre'];
+            filtros.forEach(filtroId => {
+                const elemento = document.getElementById(filtroId);
+                if (elemento) {
+                    elemento.disabled = true;
+                    elemento.style.backgroundColor = '#f0f0f0';
+                    elemento.style.cursor = 'not-allowed';
+                }
+            });
+            
+            // Deshabilitar botones de navegación de turno
+            const btnTurnoAnterior = document.getElementById('btn-turno-anterior');
+            const btnTurnoSiguiente = document.getElementById('btn-turno-siguiente');
+            if (btnTurnoAnterior) btnTurnoAnterior.disabled = true;
+            if (btnTurnoSiguiente) btnTurnoSiguiente.disabled = true;
+            
+            console.log('✅ Vista configurada en modo solo lectura');
+        }
+    }
+    
+    // Función para validar el semestre (roles de validación)
+    async function validarSemestre() {
+        const periodo = document.getElementById('periodo').value;
+        const programa = document.getElementById('programa').value;
+        const modalidad = document.getElementById('modalidad').value;
+        const semestre = document.getElementById('semestre').value;
+        
+        const semestreNombre = semestresMap[parseInt(semestre)] || `Semestre ${semestre}`;
+        
+        const confirmar = confirm(
+            `¿Está seguro que desea VALIDAR el ${semestreNombre}?\n\n` +
+            `Esta acción marcará el semestre como aprobado y bloqueará cualquier modificación futura.\n\n` +
+            `¿Continuar?`
+        );
+        
+        if (!confirmar) {
+            console.log('❌ Usuario canceló la validación');
+            return;
+        }
+        
+        try {
+            console.log('🔄 Enviando validación al servidor...');
+            
+            const response = await fetch('/matricula/validar_semestre_rol', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    periodo: periodo,
+                    programa: programa,
+                    modalidad: modalidad,
+                    semestre: semestre
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                console.log('✅ Semestre validado exitosamente:', data);
+                alert(
+                    `✅ ${data.mensaje}\n\n` +
+                    `Validado por: ${data.data.validado_por}\n` +
+                    `Fecha: ${new Date(data.data.fecha_validacion).toLocaleString()}`
+                );
+            } else {
+                throw new Error(data.error || 'Error desconocido al validar');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error al validar el semestre:', error);
+            alert(`❌ Error al validar el semestre:\n\n${error.message}`);
+        }
+    }
+    
+    // Función para rechazar el semestre (roles de validación)
+    async function rechazarSemestre() {
+        const periodo = document.getElementById('periodo').value;
+        const programa = document.getElementById('programa').value;
+        const modalidad = document.getElementById('modalidad').value;
+        const semestre = document.getElementById('semestre').value;
+        
+        const semestreNombre = semestresMap[parseInt(semestre)] || `Semestre ${semestre}`;
+        
+        const motivo = prompt(
+            `¿Por qué desea RECHAZAR el ${semestreNombre}?\n\n` +
+            `Por favor ingrese el motivo del rechazo:`
+        );
+        
+        if (!motivo || motivo.trim() === '') {
+            console.log('❌ Usuario canceló el rechazo o no ingresó motivo');
+            return;
+        }
+        
+        const confirmar = confirm(
+            `¿Está seguro que desea RECHAZAR el ${semestreNombre}?\n\n` +
+            `Motivo: ${motivo}\n\n` +
+            `Esta acción devolverá el semestre al capturista para correcciones.\n\n` +
+            `¿Continuar?`
+        );
+        
+        if (!confirmar) {
+            console.log('❌ Usuario canceló la confirmación del rechazo');
+            return;
+        }
+        
+        try {
+            console.log('🔄 Enviando rechazo al servidor...');
+            
+            const response = await fetch('/matricula/rechazar_semestre_rol', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    periodo: periodo,
+                    programa: programa,
+                    modalidad: modalidad,
+                    semestre: semestre,
+                    motivo: motivo
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                console.log('❌ Semestre rechazado:', data);
+                alert(
+                    `❌ ${data.mensaje}\n\n` +
+                    `Rechazado por: ${data.data.rechazado_por}\n` +
+                    `Motivo: ${data.data.motivo}\n` +
+                    `Fecha: ${new Date(data.data.fecha_rechazo).toLocaleString()}\n\n` +
+                    `El capturista será notificado.`
+                );
+            } else {
+                throw new Error(data.error || 'Error desconocido al rechazar');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error al rechazar el semestre:', error);
+            alert(`❌ Error al rechazar el semestre:\n\n${error.message}`);
+        }
+    }
 </script>
 <!-- Panel debug opcional para ver filas crudas del SP -->
 <div id="sp-debug-panel" style="margin:20px; padding:10px; border:1px solid #ddd; display:none;">
@@ -2473,6 +3145,12 @@
         if(!panel) return;
         if (panel.style.display === 'none' || panel.style.display === '') {
             panel.style.display = 'block';
+            // Asegurar contenido actualizado antes de desplazarse
+            try { actualizarInforme(); } catch(e){ console.warn('No se pudo actualizar informe antes de scroll', e); }
+            // Desplazamiento suave al panel
+            setTimeout(() => {
+                panel.scrollIntoView({behavior:'smooth', block:'start'});
+            }, 50);
         } else {
             panel.style.display = 'none';
         }

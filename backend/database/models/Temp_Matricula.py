@@ -18,4 +18,5 @@ class Temp_Matricula(Base):
     Tipo_Ingreso: Mapped[str] = mapped_column(String(50), nullable=True)
     Sexo: Mapped[str] = mapped_column(String(50), nullable=True)
     Matricula: Mapped[int] = mapped_column(nullable=True)
+    id_semafoto: Mapped[int] = mapped_column(nullable=True)
     Salones: Mapped[int] = mapped_column(nullable=True)
