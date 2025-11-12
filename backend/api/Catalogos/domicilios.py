@@ -1,3 +1,4 @@
+from warnings import catch_warnings
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
@@ -39,6 +40,7 @@ def domicilios_view(
         # Convertir el resultado a lista de diccionarios
         data = [dict(row) for row in resultado.mappings().all()]
         print(data)
+        consultaRama()
 
     except Exception as e:
         print("Error al ejecutar SP_Consulta_Catalogo_Unidad_Academica:", e)
@@ -53,3 +55,14 @@ def domicilios_view(
             "rol": Rol
         }
     )
+
+
+def consultaRama():
+    try:
+        query = text("SELECT * FROM cat_rama")  # 👈 envolver en text()
+        resultado = db.execute(query)
+        datos = resultado.fetchall()
+        return {"ramas": [dict(row._mapping) for row in datos]}  # _mapping para SQLAlchemy 2.x
+    except Exception as e:
+        return {"error": str(e)}
+    

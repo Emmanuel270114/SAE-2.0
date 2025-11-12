@@ -4,6 +4,7 @@
 
 {% block styles %}
     <link rel="stylesheet" href="/static/css/components/header.css">
+    <link rel="stylesheet" href="/static/css/components/forms.css">
     <link rel="stylesheet" href="/static/css/components/filters.css">
     <link rel="stylesheet" href="/static/css/components/tables.css">
 {% endblock %}
@@ -18,7 +19,31 @@
     </div>
 
 
-    <div>
+
+
+    <!-- 🔹 Formulario de Registro/Edición del Rol -->
+    <div class="registro-container">
+        <h3 id="titulo-usuario">Agregar Estatus </h3>
+        <form id="registroRol">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="rol">Estatus</label>
+                    <input type="text" id="rol" name="rol"  class="input-form" >
+                </div>
+            </div>
+             <div class="form-row">
+                <button type="submit" id="btn-guardar">Registrar</button>
+                <button type="button" id="btn-cancelar">Cancelar</button>
+                <button type="button" id="btn-limpiar">Limpiar</button>
+                <button type="button" id="btn-eliminar" style="display:none;">Eliminar</button>
+            </div>
+        </form>
+    </div>
+
+
+
+
+    <div class="table-container">
     <table id="tabla-domicilios">
         <thead>
             <tr>
@@ -27,7 +52,7 @@
         </thead>
         <tbody>
             {% for e in estatus %}
-            <tr class="fila-usuario">
+            <tr class="fila-edit">
                 <td>{{ e.Descripcion }}</td>
             </tr>
             {% endfor %}
@@ -40,5 +65,90 @@
 {% endblock %}
 
 {% block scripts %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const filas = document.querySelectorAll(".fila-edit");
+    const form = document.getElementById("registroRol");
+    const btnGuardar = document.getElementById("btn-guardar");
+    const btnEliminar = document.getElementById("btn-eliminar");
+    const btnCancelar = document.getElementById("btn-cancelar");
+    const btnLimpiar = document.getElementById("btn-limpiar");
+    const titulo = document.getElementById("titulo-usuario");
+
+    // 🔹 Cuando se selecciona una fila, llenar el formulario
+    filas.forEach(fila => {
+        fila.addEventListener("click", () => {
+            const celdas = fila.querySelectorAll("td");
+
+            document.getElementById("estatus").value = celdas[0].textContent.trim();
+
+
+            // Cambiar al modo edición
+            btnGuardar.textContent = "Actualizar";
+            btnEliminar.style.display = "inline-block";
+            titulo.textContent = "Editar Estatus";
+        });
+    });
+
+    // 🔹 Botón Limpiar: borra los campos, mantiene modo actual
+    btnLimpiar.addEventListener("click", function () {
+        form.reset();
+        titulo.textContent = "Registro Estatus"
+        btnGuardar.textContent = "Registrar";
+        btnEliminar.style.display = "none";
+    });
+
+    // 🔹 Botón Cancelar: limpia y vuelve al modo “Registrar”
+    btnCancelar.addEventListener("click", function () {
+        form.reset();
+        btnGuardar.textContent = "Registrar";
+        btnEliminar.style.display = "none";
+        titulo.textContent = "Registro Estatus";
+    });
+
+    // 🔹 Botón Eliminar: confirma y limpia (puedes agregar tu lógica fetch)
+    btnEliminar.addEventListener("click", function () {
+        const nombre = document.getElementById("nPrograma").value;
+        if (confirm(`¿Seguro que deseas eliminar el programa "${nombre}"?`)) {
+            console.log("Eliminando estatus:", nombre);
+
+            // Aquí podrías agregar la llamada fetch() para eliminar desde Flask
+
+            form.reset();
+            btnGuardar.textContent = "Registrar";
+            btnEliminar.style.display = "none";
+            titulo.textContent = "Registro Programa";
+        }
+    });
+
+    // 🔹 Evento de envío del formulario (diferencia entre registrar y actualizar)
+    form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const modo = btnGuardar.textContent;
+        const datos = {
+            nombre: document.getElementById("nPrograma").value,
+            nivel: document.getElementById("nivel").value,
+            rama: document.getElementById("director").value,
+            semestre: document.getElementById("Semestre").value,
+            descripcion: document.getElementById("descripcion").value
+        };
+
+        if (modo === "Registrar") {
+            console.log("Registrando nuevo programa:", datos);
+            // Aquí puedes agregar tu fetch POST para registrar
+        } else {
+            console.log("Actualizando programa existente:", datos);
+            // Aquí puedes agregar tu fetch PUT o PATCH para actualizar
+        }
+
+        // (Opcional) limpiar después de enviar
+        // form.reset();
+        // btnGuardar.textContent = "Registrar";
+        // btnEliminar.style.display = "none";
+        // titulo.textContent = "Registro Programa";
+    });
+});
+</script>
 
 {% endblock %}
