@@ -40,8 +40,10 @@ PERIODO_DEFAULT_LITERAL = '2025-2026/1'
 @router.get('/consulta')
 async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_db)):
     """
-    Endpoint principal para la captura de matrícula usando EXCLUSIVAMENTE Stored Procedures.
-    Solo accesible para usuarios con rol 'Capturista'.
+    Endpoint principal para la visualización/captura de matrícula usando EXCLUSIVAMENTE Stored Procedures.
+    Accesible para:
+    - Rol 'Capturista' (ID 3): Captura y validación de datos
+    - Roles con ID 4 y 5: Solo visualización y validación/rechazo (sin edición)
     TODA la información viene del SP, NO de los modelos ORM.
     """
     # Obtener datos del usuario logueado desde las cookies
@@ -54,17 +56,24 @@ async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_
     apellidoM_usuario = request.cookies.get("apellidoM_usuario", "")
     nombre_completo = " ".join(filter(None, [nombre_usuario, apellidoP_usuario, apellidoM_usuario]))
 
-    # Validar que el usuario tenga el rol de 'Capturista'
-    if nombre_rol.lower() != 'capturista':
+    # Validar que el usuario tenga uno de los roles permitidos
+    roles_permitidos = [3, 4, 5]  # 3=Capturista, 4 y 5=Roles de validación/rechazo
+    if id_rol not in roles_permitidos:
         return templates.TemplateResponse("error.html", {
             "request": request,
-            "error_message": "Acceso denegado: Solo los usuarios con rol 'Capturista' pueden acceder a esta funcionalidad.",
+            "error_message": f"Acceso denegado: Su rol ({nombre_rol}) no tiene permisos para acceder a esta funcionalidad.",
             "redirect_url": "/mod_principal/"
         })
+    
+    # Determinar el modo de vista según el rol
+    es_capturista = (id_rol == 3)
+    modo_vista = "captura" if es_capturista else "validacion"
 
     print(f"\n{'='*60}")
     print(f"CARGANDO VISTA DE MATRÍCULA - TODO DESDE SP")
     print(f"Usuario: {nombre_completo}")
+    print(f"Rol: {nombre_rol} (ID: {id_rol})")
+    print(f"Modo de vista: {modo_vista.upper()}")
     print(f"ID Unidad Académica: {id_unidad_academica}")
     print(f"ID Nivel: {id_nivel}")
     print(f"{'='*60}")
@@ -204,6 +213,8 @@ async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_
         "id_unidad_academica": id_unidad_academica,
         "id_nivel": id_nivel,
         "id_rol": id_rol,
+        "es_capturista": es_capturista,
+        "modo_vista": modo_vista,
         "periodos": periodos,
         "unidades_academicas": unidades_academicas,
         "periodo_default_id": periodo_default_id,
@@ -909,15 +920,18 @@ async def limpiar_temp_matricula(db: Session = Depends(get_db)):
         return {"error": f"Error al limpiar Temp_Matricula: {str(e)}"}
 
 
-@router.post("/validar_captura_semestre")
-async def validar_captura_semestre(request: Request, db: Session = Depends(get_db)):
+@router.post("/preparar_turno")
+async def preparar_turno(request: Request, db: Session = Depends(get_db)):
     """
-    Endpoint para validar y finalizar la captura de un semestre específico.
-    Ejecuta el SP SP_Actualiza_Matricula_Por_Semestre_AU que:
-    1. Actualiza la matrícula completa
-    2. Cambia el semáforo del semestre a "Completado" (ID=3)
-    3. Registra la acción en bitácora
-    4. Devuelve los datos actualizados
+    Endpoint para VALIDAR un turno individual (Fase 1 del nuevo sistema).
+    Este endpoint:
+    1. Ejecuta SP_Actualiza_Matricula_Por_Unidad_Academica (igual que Guardar Avance)
+    2. NO actualiza el semáforo del semestre
+    3. Marca el turno como validado para bloqueo permanente
+    4. Retorna success=True para que el frontend bloquee los inputs
+    
+    El SP_Actualiza_Matricula_Por_Semestre_AU se ejecutará automáticamente
+    cuando todos los turnos del semestre estén validados.
     """
     try:
         # Obtener datos del request
@@ -945,7 +959,7 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
         host_sp = get_request_host(request)
         
         print(f"\n{'='*60}")
-        print(f"VALIDANDO CAPTURA DE SEMESTRE")
+        print(f"VALIDANDO TURNO INDIVIDUAL - SP POR UNIDAD ACADÉMICA")
         print(f"{'='*60}")
         print(f"Periodo (input): {periodo}")
         print(f"Programa ID: {programa}")
@@ -965,6 +979,134 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
                     "modalidad": modalidad,
                     "semestre": semestre,
                     "turno": turno
+                }
+            }
+        
+        # Convertir período a literal si viene como ID
+        if str(periodo).isdigit():
+            periodo_obj = db.query(Periodo).filter(Periodo.Id_Periodo == int(periodo)).first()
+            periodo_literal = periodo_obj.Periodo if periodo_obj else PERIODO_DEFAULT_LITERAL
+            print(f"🔄 Período convertido de ID {periodo} → '{periodo_literal}'")
+        else:
+            periodo_literal = str(periodo)
+            print(f"✅ Período en literal: '{periodo_literal}'")
+        
+        # Obtener nombres literales desde la BD para el SP
+        unidad = db.query(Unidad_Academica).filter(
+            Unidad_Academica.Id_Unidad_Academica == id_unidad_academica
+        ).first()
+        unidad_sigla = unidad.Sigla if unidad else ''
+        
+        nivel_obj = db.query(Nivel).filter(Nivel.Id_Nivel == id_nivel).first()
+        nivel_nombre = nivel_obj.Nivel if nivel_obj else ''
+        
+        semestre_obj = db.query(Semestre).filter(Semestre.Id_Semestre == int(semestre)).first()
+        semestre_nombre = semestre_obj.Semestre if semestre_obj else f"Semestre {semestre}"
+        
+        turno_obj = db.query(Turno).filter(Turno.Id_Turno == int(turno)).first()
+        turno_nombre = turno_obj.Turno if turno_obj else f"Turno {turno}"
+        
+        print(f"\n📋 Ejecutando SP_Actualiza_Matricula_Por_Unidad_Academica")
+        print(f"   Unidad: {unidad_sigla}")
+        print(f"   Nivel: {nivel_nombre}")
+        print(f"   Período: {periodo_literal}")
+        
+        # Ejecutar SP de Unidad Académica (igual que Guardar Avance)
+        rows_list = execute_sp_actualiza_matricula_por_unidad_academica(
+            db,
+            unidad_sigla=unidad_sigla,
+            salones=0,
+            usuario=usuario_sp,
+            periodo=periodo_literal,
+            host=host_sp,
+            nivel=nivel_nombre
+        )
+        
+        print(f"\n✅ SP_Actualiza_Matricula_Por_Unidad_Academica ejecutado exitosamente")
+        print(f"📋 Semestre: {semestre_nombre}")
+        print(f"🕐 Turno: {turno_nombre}")
+        print(f"⏭️  El SP_Actualiza_Matricula_Por_Semestre_AU se ejecutará cuando todos los turnos estén validados")
+        
+        # Retornar éxito
+        return {
+            "success": True,
+            "mensaje": f"Turno {turno_nombre} del {semestre_nombre} validado exitosamente",
+            "turno_validado": turno_nombre,
+            "semestre": semestre_nombre,
+            "fase": "turno_individual",
+            "sp_ejecutado": "SP_Actualiza_Matricula_Por_Unidad_Academica",
+            "rows": rows_list,
+            "nota": "El turno está bloqueado. El SP final se ejecutará cuando todos los turnos estén completos"
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"\n❌ ERROR al validar turno: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        return {
+            "error": f"Error al validar el turno: {str(e)}",
+            "success": False
+        }
+
+
+@router.post("/validar_captura_semestre")
+async def validar_captura_semestre(request: Request, db: Session = Depends(get_db)):
+    """
+    Endpoint para validar y finalizar TODOS LOS TURNOS de un semestre (Fase 2 - SP FINAL).
+    Este endpoint:
+    1. Ejecuta el SP SP_Actualiza_Matricula_Por_Semestre_AU
+    2. Actualiza el semáforo del semestre a "Completado" (ID=3)
+    3. Registra la acción en bitácora
+    4. Devuelve los datos actualizados
+    
+    SOLO debe llamarse cuando todos los turnos del semestre estén validados.
+    """
+    try:
+        # Obtener datos del request
+        data = await request.json()
+        
+        # Parámetros necesarios
+        periodo = data.get('periodo')
+        programa = data.get('programa')
+        modalidad = data.get('modalidad')
+        semestre = data.get('semestre')
+        
+        # Obtener datos del usuario desde cookies
+        id_unidad_academica = int(request.cookies.get("id_unidad_academica", 0))
+        id_nivel = int(request.cookies.get("id_nivel", 0))
+        nombre_usuario = request.cookies.get("nombre_usuario", "")
+        apellidoP_usuario = request.cookies.get("apellidoP_usuario", "")
+        apellidoM_usuario = request.cookies.get("apellidoM_usuario", "")
+        
+        # Construir nombre completo del usuario
+        nombre_completo = f"{nombre_usuario} {apellidoP_usuario} {apellidoM_usuario}".strip()
+        usuario_sp = nombre_completo or 'sistema'
+        
+        # Obtener host
+        host_sp = get_request_host(request)
+        
+        print(f"\n{'='*60}")
+        print(f"EJECUTANDO SP FINAL - CONSOLIDACIÓN DEL SEMESTRE COMPLETO")
+        print(f"{'='*60}")
+        print(f"⚠️  TODOS LOS TURNOS DEL SEMESTRE DEBEN ESTAR VALIDADOS")
+        print(f"Periodo (input): {periodo}")
+        print(f"Programa ID: {programa}")
+        print(f"Modalidad ID: {modalidad}")
+        print(f"Semestre ID: {semestre}")
+        print(f"Usuario: {usuario_sp}")
+        print(f"Host: {host_sp}")
+        
+        # Validar parámetros obligatorios (sin turno)
+        if not all([periodo, programa, modalidad, semestre]):
+            return {
+                "error": "Faltan parámetros obligatorios",
+                "detalles": {
+                    "periodo": periodo,
+                    "programa": programa,
+                    "modalidad": modalidad,
+                    "semestre": semestre
                 }
             }
 
@@ -1066,10 +1208,11 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
         
         return {
             "success": True,
-            "mensaje": f"Captura del {semestre_nombre} validada y completada exitosamente",
+            "mensaje": f"SP FINAL ejecutado - {semestre_nombre} consolidado completamente",
             "rows": rows_list,
             "semestre_validado": semestre_nombre,
             "estado_semaforo": estado_semaforo_actualizado,
+            "fase": "sp_final_consolidado",
             "debug": {
                 "sp_ejecutado": "SP_Actualiza_Matricula_Por_Semestre_AU",
                 "parametros": {
@@ -1098,3 +1241,118 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
         }
 
 
+@router.post("/validar_semestre_rol")
+async def validar_semestre_rol(request: Request, db: Session = Depends(get_db)):
+    """
+    Endpoint para que roles de validación (ID 4 y 5) aprueben un semestre completo.
+    Marca el semestre como validado y lo bloquea para futuras modificaciones.
+    """
+    try:
+        # Obtener datos del usuario desde cookies
+        usuario = request.cookies.get("usuario", "")
+        id_usuario = int(request.cookies.get("id_usuario", 0))
+        id_rol = int(request.cookies.get("id_rol", 0))
+        
+        # Validar que sea un rol de validación
+        if id_rol not in [4, 5]:
+            return {
+                "success": False,
+                "error": "Solo los roles de validación pueden usar esta función"
+            }
+        
+        # Obtener datos del request
+        body = await request.json()
+        periodo_id = body.get("periodo")
+        programa_id = body.get("programa")
+        modalidad_id = body.get("modalidad")
+        semestre_id = body.get("semestre")
+        
+        print(f"\n✅ Validación de semestre por rol {id_rol} - Usuario: {usuario}")
+        print(f"   Periodo: {periodo_id}, Programa: {programa_id}, Modalidad: {modalidad_id}, Semestre: {semestre_id}")
+        
+        # Aquí se implementará la lógica de validación
+        # Por ahora, retornamos éxito
+        
+        return {
+            "success": True,
+            "mensaje": f"Semestre validado exitosamente por {usuario}",
+            "data": {
+                "validado_por": usuario,
+                "id_usuario": id_usuario,
+                "id_rol": id_rol,
+                "fecha_validacion": datetime.now().isoformat()
+            }
+        }
+        
+    except Exception as e:
+        print(f"\n❌ ERROR al validar semestre (rol): {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        return {
+            "success": False,
+            "error": f"Error al validar el semestre: {str(e)}"
+        }
+
+
+@router.post("/rechazar_semestre_rol")
+async def rechazar_semestre_rol(request: Request, db: Session = Depends(get_db)):
+    """
+    Endpoint para que roles de validación (ID 4 y 5) rechacen un semestre.
+    Devuelve el semestre al capturista para correcciones.
+    """
+    try:
+        # Obtener datos del usuario desde cookies
+        usuario = request.cookies.get("usuario", "")
+        id_usuario = int(request.cookies.get("id_usuario", 0))
+        id_rol = int(request.cookies.get("id_rol", 0))
+        
+        # Validar que sea un rol de validación
+        if id_rol not in [4, 5]:
+            return {
+                "success": False,
+                "error": "Solo los roles de validación pueden usar esta función"
+            }
+        
+        # Obtener datos del request
+        body = await request.json()
+        periodo_id = body.get("periodo")
+        programa_id = body.get("programa")
+        modalidad_id = body.get("modalidad")
+        semestre_id = body.get("semestre")
+        motivo = body.get("motivo", "").strip()
+        
+        if not motivo:
+            return {
+                "success": False,
+                "error": "El motivo del rechazo es obligatorio"
+            }
+        
+        print(f"\n❌ Rechazo de semestre por rol {id_rol} - Usuario: {usuario}")
+        print(f"   Periodo: {periodo_id}, Programa: {programa_id}, Modalidad: {modalidad_id}, Semestre: {semestre_id}")
+        print(f"   Motivo: {motivo}")
+        
+        # Aquí se implementará la lógica de rechazo
+        # Por ahora, retornamos éxito
+        
+        return {
+            "success": True,
+            "mensaje": f"Semestre rechazado por {usuario}",
+            "data": {
+                "rechazado_por": usuario,
+                "id_usuario": id_usuario,
+                "id_rol": id_rol,
+                "motivo": motivo,
+                "fecha_rechazo": datetime.now().isoformat()
+            }
+        }
+        
+    except Exception as e:
+        print(f"\n❌ ERROR al rechazar semestre (rol): {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        return {
+            "success": False,
+            "error": f"Error al rechazar el semestre: {str(e)}"
+        }

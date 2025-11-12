@@ -181,3 +181,132 @@ select.input-form {
 .col-masculino, .col-femenino {
     width: 30%;
 }
+
+/* Estilos para inputs deshabilitados en modo validación */
+.input-disabled {
+    background-color: #f0f0f0 !important;
+    cursor: not-allowed !important;
+    color: #666 !important;
+    border: 1px solid #ccc !important;
+}
+
+input.input-disabled:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Estilo para filtros deshabilitados */
+select:disabled {
+    background-color: #f0f0f0 !important;
+    cursor: not-allowed !important;
+    color: #666 !important;
+}
+
+/* Botones de turno deshabilitados */
+button:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+}
+
+/* Estilos para botones de validación/rechazo (roles 4 y 5) */
+.btn-success {
+    background: #28a745 !important;
+    color: white !important;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(40, 167, 69, 0.3);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 10px;
+}
+
+.btn-success:hover {
+    background: #218838 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(40, 167, 69, 0.4);
+}
+
+.btn-success:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+}
+
+.btn-danger {
+    background: #dc3545 !important;
+    color: white !important;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(220, 53, 69, 0.3);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 10px;
+}
+
+.btn-danger:hover {
+    background: #c82333 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(220, 53, 69, 0.4);
+}
+
+.btn-danger:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+.btn-info {
+    background: #17a2b8 !important;
+    color: white !important;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(23, 162, 184, 0.3);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 10px;
+}
+
+.btn-info:hover {
+    background: #138496 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(23, 162, 184, 0.4);
+}
+
+.btn-info:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(23, 162, 184, 0.3);
+}
+
+/* Animación de pulso para el botón de rechazar al hacer hover (efecto de advertencia) */
+.btn-danger:hover {
+    animation: pulse-danger 1.5s infinite;
+}
+
+@keyframes pulse-danger {
+    0% {
+        box-shadow: 0 6px 12px rgba(220, 53, 69, 0.4);
+    }
+    50% {
+        box-shadow: 0 6px 20px rgba(220, 53, 69, 0.6);
+    }
+    100% {
+        box-shadow: 0 6px 12px rgba(220, 53, 69, 0.4);
+    }
+}
+
