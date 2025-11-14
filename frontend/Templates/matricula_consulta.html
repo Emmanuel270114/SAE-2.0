@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="/static/css/components/header.css">
     <link rel="stylesheet" href="/static/css/components/tables.css">
     <link rel="stylesheet" href="/static/css/components/matricula_consulta.css">
+    <link rel="stylesheet" href="/static/css/panel-rechazo.css">
     <script src="/static/js/matricula_inputs.js"></script>
     <style>
         /* Ocultar el submenu de categorias que viene de base.html en esta vista */
@@ -77,16 +78,49 @@
 
     <h2>Captura de Matrícula Escolar</h2>
 
+    <!-- Banner de Rechazo (solo visible para capturista cuando hay rechazo) -->
+    {% if rechazo_info %}
+    <div id="banner-rechazo" class="banner-rechazo">
+        <div class="banner-rechazo-icon">
+            <span class="icono-advertencia-grande">⚠️</span>
+        </div>
+        <div class="banner-rechazo-content">
+            <div class="banner-rechazo-header">
+                <h3>❌ MATRÍCULA RECHAZADA - CORRECCIONES REQUERIDAS</h3>
+                <button class="btn-cerrar-banner" onclick="cerrarBannerRechazo()" title="Cerrar">
+                    ✕
+                </button>
+            </div>
+            <div class="banner-rechazo-body">
+                <div class="rechazo-motivo">
+                    <strong>Motivo del Rechazo:</strong>
+                    <p>{{ rechazo_info.motivo }}</p>
+                </div>
+                <div class="rechazo-meta">
+                    <span><strong>Rechazado por:</strong> {{ rechazo_info.rechazado_por }}</span>
+                    <span class="separador">•</span>
+                    <span><strong>Fecha:</strong> {{ rechazo_info.fecha }}</span>
+                    <span class="separador">•</span>
+                    <span><strong>Periodo:</strong> {{ rechazo_info.periodo }}</span>
+                </div>
+                <div class="rechazo-instrucciones">
+                    <p>📝 Por favor, revise y corrija los datos indicados. Una vez realizadas las correcciones, valide nuevamente todos los turnos del semestre.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     {% if not programas %}
     <div class="alert-info">
         <strong>Información:</strong> No hay programas disponibles para su nivel y unidad académica.
     </div>
     {% else %}
 
-    <!-- Sección de Filtros con diseño horizontal -->
+    <!-- Sección de Filtros para roles de validación (4 y 5) - HABILITADOS -->
     <div class="filtros-container">
         <div class="filtros-row">
-            <!-- Periodo removido de los filtros: usamos el periodo por defecto en el header -->
+            <!-- Periodo - Campo oculto (se usa el periodo por defecto del sistema) -->
             <input type="hidden" id="periodo" name="periodo" value="{{ periodo_default_id }}">
             
             <div class="filtro-item">
@@ -111,7 +145,7 @@
             <input type="hidden" id="semestre" name="semestre" value="1">
             <input type="hidden" id="turno" name="turno" value="1">
 
-            <!-- Unidad Académica removida de los filtros: mostramos la UA en el header y la enviamos como hidden -->
+            <!-- Unidad Académica - Campo oculto (roles 4 y 5 solo ven su propia UA) -->
             {% if unidad_actual %}
                 <input type="hidden" id="unidad_academica" name="unidad_academica" value="{{ unidad_actual.Id_Unidad_Academica }}">
             {% else %}
@@ -121,7 +155,7 @@
         
         <div class="periodo-info">
             Periodo:
-            <strong>2025-2026/1</strong>
+            <strong>{{ periodo_default_literal }}</strong>
             &nbsp;|&nbsp;
             Unidad Académica: <strong>{{ unidad_actual.Nombre if unidad_actual else 'No definida' }}</strong>
         </div>
@@ -250,24 +284,74 @@
             <button id="btn-validar-matricula" type="button" class="btn-success" onclick="validarCapturaSemestre()">
                 ✅ Finalizar Turno
             </button>
-            <button id="btn-ver-informe" type="button" class="btn-info" onclick="toggleInformePanel()">
-                📈 Ver Informe
-            </button>
             {% else %}
-            <!-- Botones para roles de validación (ID 4 y 5) -->
-            <button id="btn-validar-semestre" type="button" class="btn-success" onclick="validarSemestre()">
+            <!-- Botones para roles de validación (ID 4, 5, 6, 7, 8) -->
+            <button id="btn-validar-semestre" type="button" class="btn-success" onclick="validarSemestre()"
+                {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}>
                 ✅ Validar
             </button>
-            <button id="btn-rechazar-semestre" type="button" class="btn-danger" onclick="rechazarSemestre()">
+            <button id="btn-rechazar-semestre" type="button" class="btn-danger" onclick="rechazarSemestre()"
+                {% if usuario_ya_valido or usuario_ya_rechazo %}disabled title="Ya has validado/rechazado esta matrícula"{% endif %}>
                 ❌ Rechazar
             </button>
-            <button id="btn-ver-informe" type="button" class="btn-info" onclick="toggleInformePanel()">
-                📈 Ver Informe
-            </button>
+            
+            <!-- Mensaje informativo cuando ya se validó/rechazó -->
+            {% if usuario_ya_valido or usuario_ya_rechazo %}
+            <div class="mensaje-validacion-previa">
+                <span class="icono-info">ℹ️</span>
+                <span class="texto-info">
+                    {% if usuario_ya_valido %}
+                    Ya has <strong>validado</strong> esta matrícula. Los botones se habilitarán cuando el capturista realice correcciones.
+                    {% else %}
+                    Ya has <strong>rechazado</strong> esta matrícula. Los botones se habilitarán cuando el capturista realice correcciones.
+                    {% endif %}
+                </span>
+            </div>
+            {% endif %}
             {% endif %}
         </div>
+        
+        <!-- Panel de Rechazo (se despliega debajo de los botones) -->
+        <div id="panel-rechazo" class="panel-rechazo" style="display: none;">
+            <div class="panel-rechazo-header">
+                <h3>Rechazar Matrícula</h3>
+                <button class="btn-cerrar-panel" onclick="cerrarPanelRechazo()">
+                    <span>✕</span>
+                </button>
+            </div>
+            <div class="panel-rechazo-body">
+                <div class="panel-warning">
+                    Está a punto de rechazar la matrícula completa. Esta acción devolverá todos los datos al capturista para que realice las correcciones necesarias.
+                </div>
+                <div class="form-group">
+                    <label for="motivo-rechazo-panel">
+                        Motivo del Rechazo <span style="color: #8b2332;">*</span>
+                        <span class="texto-ayuda">Explique detalladamente por qué se rechaza (mínimo 10 caracteres)</span>
+                    </label>
+                    <textarea 
+                        id="motivo-rechazo-panel" 
+                        rows="5" 
+                        maxlength="250"
+                        placeholder="Ejemplo: Los datos del Semestre 3 no coinciden con los registros oficiales. Se requiere verificación de las cifras de nuevo ingreso en el turno matutino."
+                        class="textarea-motivo-rechazo"
+                        oninput="actualizarContadorPanel()"
+                    ></textarea>
+                    <div class="contador-caracteres">
+                        <span id="contador-caracteres-panel">0</span> / 250 caracteres
+                    </div>
+                </div>
+            </div>
+            <div class="panel-footer">
+                <button class="btn-cancelar" onclick="cerrarPanelRechazo()">
+                    Cancelar
+                </button>
+                <button class="btn-confirmar-rechazo" onclick="confirmarRechazoPanel()">
+                    ✅ Confirmar Rechazo
+                </button>
+            </div>
+        </div>
     </div>
-    <div id="informe-panel" class="informe-container" style="display:none;">
+    <div id="informe-panel" class="informe-container" style="display:block;">
         <h3 style="text-align:center; color:#6e0343;">Informe de Guardado</h3>
         <div class="informe-grid">
             <div class="informe-section">
@@ -1931,21 +2015,18 @@
         const btnGuardar = document.getElementById('btn-guardar-matricula');
         const btnLimpiar = document.getElementById('btn-limpiar-formulario');
         const btnValidar = document.getElementById('btn-validar-matricula');
-        const btnInforme = document.getElementById('btn-ver-informe');
         
         if (parseInt(estado) === 3) {
             // Bloquear todos los inputs de matrícula (incluye ambos turnos conceptualmente porque se recrean por turno)
             deshabilitarTodaLaVista();
             // Bloquear también el Total Grupos de este semestre-turno
             aplicarTotalGruposParaSemestreYTurnoActual();
-            // Deshabilitar botones de acción excepto informe
+            // Deshabilitar botones de acción
             [btnGuardar, btnLimpiar, btnValidar].forEach(b => { if (b) { b.disabled = true; b.classList.add('input-disabled'); }});
-            if (btnInforme) { btnInforme.disabled = false; btnInforme.classList.remove('input-disabled'); }
-            console.log('🛑 Semestre finalizado: botones Guardar/Limpiar/Validar deshabilitados, Informe activo.');
+            console.log('🛑 Semestre finalizado: botones Guardar/Limpiar/Validar deshabilitados.');
         } else {
             // Rehabilitar botones si el semestre NO está finalizado
             [btnGuardar, btnLimpiar, btnValidar].forEach(b => { if (b) { b.disabled = false; b.classList.remove('input-disabled'); }});
-            if (btnInforme) { btnInforme.disabled = false; btnInforme.classList.remove('input-disabled'); }
             console.log('✅ Semestre activo: todos los botones habilitados.');
         }
     }
@@ -2491,11 +2572,10 @@
                     // Bloquear toda la vista del semestre
                     deshabilitarTodaLaVista();
                     
-                    // Deshabilitar botones de acción excepto informe
+                    // Deshabilitar botones de acción
                     const btnGuardar = document.getElementById('btn-guardar-matricula');
                     const btnLimpiar = document.getElementById('btn-limpiar-formulario');
                     const btnValidar = document.getElementById('btn-validar-matricula');
-                    const btnInforme = document.getElementById('btn-ver-informe');
                     
                     [btnGuardar, btnLimpiar, btnValidar].forEach(b => {
                         if (b) {
@@ -2503,11 +2583,6 @@
                             b.classList.add('input-disabled');
                         }
                     });
-                    
-                    if (btnInforme) {
-                        btnInforme.disabled = false;
-                        btnInforme.classList.remove('input-disabled');
-                    }
                     
                     console.log('🔒 Vista bloqueada - semestre completado');
                 }
@@ -2888,7 +2963,7 @@
         console.log(`🔐 Aplicando modo de vista: ${modoVista}`);
         
         if (!esCapturista) {
-            console.log('👁️ Modo validación activado - Deshabilitando edición');
+            console.log('👁️ Modo validación activado - Deshabilitando edición de matrícula');
             
             // Deshabilitar TODOS los inputs de matrícula
             const inputs = document.querySelectorAll('input.input-matricula-nueva');
@@ -2908,29 +2983,26 @@
                 totalGruposInput.style.cursor = 'not-allowed';
             }
             
-            // Deshabilitar filtros (solo lectura)
-            const filtros = ['periodo', 'programa', 'modalidad', 'semestre'];
-            filtros.forEach(filtroId => {
-                const elemento = document.getElementById(filtroId);
-                if (elemento) {
-                    elemento.disabled = true;
-                    elemento.style.backgroundColor = '#f0f0f0';
-                    elemento.style.cursor = 'not-allowed';
-                }
-            });
+            // ⚠️ IMPORTANTE: Los filtros (programa, modalidad y turnos) PERMANECEN HABILITADOS
+            // para que roles 4 y 5 puedan filtrar diferentes programas/modalidades/turnos
+            console.log('✅ Filtros de programa, modalidad y turnos habilitados para validación');
             
-            // Deshabilitar botones de navegación de turno
-            const btnTurnoAnterior = document.getElementById('btn-turno-anterior');
-            const btnTurnoSiguiente = document.getElementById('btn-turno-siguiente');
-            if (btnTurnoAnterior) btnTurnoAnterior.disabled = true;
-            if (btnTurnoSiguiente) btnTurnoSiguiente.disabled = true;
+            // Los botones de navegación de turno PERMANECEN habilitados para roles de validación
+            // para que puedan revisar diferentes turnos
             
-            console.log('✅ Vista configurada en modo solo lectura');
+            console.log('✅ Vista configurada en modo solo lectura (filtros y turnos activos)');
         }
     }
     
     // Función para validar el semestre (roles de validación)
     async function validarSemestre() {
+        // Verificar si el botón está deshabilitado
+        const btnValidar = document.getElementById('btn-validar-semestre');
+        if (btnValidar.disabled) {
+            alert('Ya has validado o rechazado esta matrícula. No puedes realizar esta acción nuevamente.');
+            return;
+        }
+        
         const periodo = document.getElementById('periodo').value;
         const programa = document.getElementById('programa').value;
         const modalidad = document.getElementById('modalidad').value;
@@ -2958,62 +3030,139 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    periodo: periodo,
-                    programa: programa,
-                    modalidad: modalidad,
-                    semestre: semestre
+                    periodo: periodo
                 })
             });
             
             const data = await response.json();
             
             if (data.success) {
-                console.log('✅ Semestre validado exitosamente:', data);
+                console.log('✅ Matrícula validada exitosamente:', data);
                 alert(
                     `✅ ${data.mensaje}\n\n` +
                     `Validado por: ${data.data.validado_por}\n` +
-                    `Fecha: ${new Date(data.data.fecha_validacion).toLocaleString()}`
+                    `Unidad Académica: ${data.data.unidad_academica}\n` +
+                    `Periodo: ${data.data.periodo}\n` +
+                    `Fecha: ${new Date(data.data.fecha_validacion).toLocaleString()}\n\n` +
+                    `La matrícula ha sido aprobada completamente.`
                 );
+                
+                // Recargar la página para reflejar los cambios
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
             } else {
                 throw new Error(data.error || 'Error desconocido al validar');
             }
             
         } catch (error) {
-            console.error('❌ Error al validar el semestre:', error);
-            alert(`❌ Error al validar el semestre:\n\n${error.message}`);
+            console.error('❌ Error al validar la matrícula:', error);
+            alert(`❌ Error al validar la matrícula:\n\n${error.message}`);
         }
     }
     
-    // Función para rechazar el semestre (roles de validación)
+    // Función para rechazar el semestre (roles de validación) - Abre panel desplegable
     async function rechazarSemestre() {
+        // Verificar si el botón está deshabilitado
+        const btnRechazar = document.getElementById('btn-rechazar-semestre');
+        if (btnRechazar.disabled) {
+            alert('Ya has validado o rechazado esta matrícula. No puedes realizar esta acción nuevamente.');
+            return;
+        }
+        
+        const panel = document.getElementById('panel-rechazo');
+        const textarea = document.getElementById('motivo-rechazo-panel');
+        const contador = document.getElementById('contador-caracteres-panel');
+        
+        // Toggle: si ya está abierto, cerrarlo
+        if (panel.style.display === 'block') {
+            cerrarPanelRechazo();
+            return;
+        }
+        
+        // Limpiar textarea y reiniciar contador
+        textarea.value = '';
+        contador.textContent = '0';
+        
+        // Mostrar panel con animación
+        panel.style.display = 'block';
+        
+        // Pequeño delay para que la animación se vea
+        setTimeout(() => {
+            panel.classList.add('panel-abierto');
+        }, 10);
+        
+        // Focus en el textarea
+        setTimeout(() => textarea.focus(), 300);
+        
+        // Actualizar contador de caracteres
+        textarea.oninput = function() {
+            contador.textContent = this.value.length;
+            
+            // Cambiar color si se acerca al límite
+            if (this.value.length > 230) {
+                contador.style.color = '#dc3545';
+                contador.style.fontWeight = 'bold';
+            } else {
+                contador.style.color = '#666';
+                contador.style.fontWeight = 'normal';
+            }
+        };
+        
+        // Scroll suave hacia el panel
+        setTimeout(() => {
+            panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 350);
+    }
+    
+    // Función para actualizar el contador de caracteres del panel
+    function actualizarContadorPanel() {
+        const textarea = document.getElementById('motivo-rechazo-panel');
+        const contador = document.getElementById('contador-caracteres-panel');
+        contador.textContent = textarea.value.length;
+    }
+    
+    // Función para cerrar el panel de rechazo
+    function cerrarPanelRechazo() {
+        const panel = document.getElementById('panel-rechazo');
+        const textarea = document.getElementById('motivo-rechazo-panel');
+        
+        // Quitar clase de animación
+        panel.classList.remove('panel-abierto');
+        
+        // Limpiar textarea y contador
+        textarea.value = '';
+        document.getElementById('contador-caracteres-panel').textContent = '0';
+        
+        // Esperar a que termine la animación antes de ocultar
+        setTimeout(() => {
+            panel.style.display = 'none';
+        }, 300);
+    }
+    
+    // Función para confirmar el rechazo desde el panel
+    async function confirmarRechazoPanel() {
         const periodo = document.getElementById('periodo').value;
-        const programa = document.getElementById('programa').value;
-        const modalidad = document.getElementById('modalidad').value;
-        const semestre = document.getElementById('semestre').value;
+        const textarea = document.getElementById('motivo-rechazo-panel');
+        const motivo = textarea.value.trim();
         
-        const semestreNombre = semestresMap[parseInt(semestre)] || `Semestre ${semestre}`;
-        
-        const motivo = prompt(
-            `¿Por qué desea RECHAZAR el ${semestreNombre}?\n\n` +
-            `Por favor ingrese el motivo del rechazo:`
-        );
-        
-        if (!motivo || motivo.trim() === '') {
-            console.log('❌ Usuario canceló el rechazo o no ingresó motivo');
+        // Validar que hay motivo
+        if (!motivo) {
+            alert('❌ Debe ingresar un motivo para el rechazo');
+            textarea.focus();
             return;
         }
         
-        const confirmar = confirm(
-            `¿Está seguro que desea RECHAZAR el ${semestreNombre}?\n\n` +
-            `Motivo: ${motivo}\n\n` +
-            `Esta acción devolverá el semestre al capturista para correcciones.\n\n` +
-            `¿Continuar?`
-        );
-        
-        if (!confirmar) {
-            console.log('❌ Usuario canceló la confirmación del rechazo');
+        if (motivo.length < 10) {
+            alert('❌ El motivo debe tener al menos 10 caracteres para ser descriptivo');
+            textarea.focus();
             return;
         }
+        
+        // Deshabilitar botón para evitar doble click
+        const btnConfirmar = document.querySelector('.btn-confirmar-rechazo');
+        btnConfirmar.disabled = true;
+        btnConfirmar.textContent = '⏳ Procesando...';
         
         try {
             console.log('🔄 Enviando rechazo al servidor...');
@@ -3025,9 +3174,6 @@
                 },
                 body: JSON.stringify({
                     periodo: periodo,
-                    programa: programa,
-                    modalidad: modalidad,
-                    semestre: semestre,
                     motivo: motivo
                 })
             });
@@ -3035,21 +3181,35 @@
             const data = await response.json();
             
             if (data.success) {
-                console.log('❌ Semestre rechazado:', data);
+                // Cerrar panel
+                cerrarPanelRechazo();
+                
+                console.log('❌ Matrícula rechazada:', data);
                 alert(
-                    `❌ ${data.mensaje}\n\n` +
+                    `✅ Matrícula Rechazada Exitosamente\n\n` +
                     `Rechazado por: ${data.data.rechazado_por}\n` +
+                    `Unidad Académica: ${data.data.unidad_academica}\n` +
+                    `Periodo: ${data.data.periodo}\n` +
                     `Motivo: ${data.data.motivo}\n` +
                     `Fecha: ${new Date(data.data.fecha_rechazo).toLocaleString()}\n\n` +
-                    `El capturista será notificado.`
+                    `El capturista será notificado para realizar las correcciones necesarias.`
                 );
+                
+                // Recargar la página para reflejar los cambios
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
             } else {
                 throw new Error(data.error || 'Error desconocido al rechazar');
             }
             
         } catch (error) {
-            console.error('❌ Error al rechazar el semestre:', error);
-            alert(`❌ Error al rechazar el semestre:\n\n${error.message}`);
+            console.error('❌ Error al rechazar la matrícula:', error);
+            alert(`❌ Error al rechazar la matrícula:\n\n${error.message}`);
+            
+            // Rehabilitar botón en caso de error
+            btnConfirmar.disabled = false;
+            btnConfirmar.textContent = '✅ Confirmar Rechazo';
         }
     }
 </script>
@@ -3140,6 +3300,9 @@
             updateBtn.disabled = false;
         });
     }
+    
+    // FUNCIÓN YA NO NECESARIA - El informe siempre está visible
+    /*
     function toggleInformePanel() {
         const panel = document.getElementById('informe-panel');
         if(!panel) return;
@@ -3155,6 +3318,8 @@
             panel.style.display = 'none';
         }
     }
+    */
+    
     // ¡Nombre corregido a actualizarInforme!
     function actualizarInforme() {
         const inputs = document.querySelectorAll('input.input-matricula-nueva');
@@ -3258,6 +3423,22 @@
             console.error("No se encontró el tbody de informe-grupo-edad-table");
         }
     }
+
+    /* ========================================
+       FUNCIONES DEL BANNER DE RECHAZO
+       ======================================== */
+    
+    function cerrarBannerRechazo() {
+        const banner = document.getElementById('banner-rechazo');
+        if (banner) {
+            banner.style.animation = 'slideDownBanner 0.3s ease-out reverse';
+            setTimeout(() => {
+                banner.style.display = 'none';
+            }, 300);
+        }
+    }
     
 </script>
+
+
 {% endblock %}

@@ -418,3 +418,137 @@ def get_estado_semaforo_desde_sp(
                     except Exception:
                         continue
     return None
+
+
+def execute_sp_finaliza_captura_matricula(
+    db: Session,
+    unidad_sigla: str,
+    programa_nombre: str,
+    modalidad_nombre: str,
+    semestre_nombre: str,
+    salones: int,
+    usuario: str,
+    periodo: str,
+    host: str,
+    nivel: str,
+) -> None:
+    """
+    Ejecuta SP_Finaliza_Captura_Matricula.
+    Este SP se ejecuta automáticamente después de SP_Actualiza_Matricula_Por_Semestre_AU
+    para finalizar completamente la captura del semestre.
+    """
+    sql = text(
+        """
+        EXEC [dbo].[SP_Finaliza_Captura_Matricula]
+            @UUnidad_Academica = :unidad,
+            @PPrograma = :programa,
+            @MModalidad = :modalidad,
+            @SSemestre = :semestre,
+            @SSalones = :salones,
+            @UUsuario = :usuario,
+            @PPeriodo = :periodo,
+            @HHost = :host,
+            @NNivel = :nivel
+        """
+    )
+    
+    try:
+        db.execute(sql, {
+            'unidad': unidad_sigla,
+            'programa': programa_nombre,
+            'modalidad': modalidad_nombre,
+            'semestre': semestre_nombre,
+            'salones': int(salones) if salones is not None else 0,
+            'usuario': usuario,
+            'periodo': periodo,
+            'host': host,
+            'nivel': nivel,
+        })
+        db.commit()
+        print(f"✅ SP_Finaliza_Captura_Matricula ejecutado exitosamente")
+    except Exception as e:
+        print(f"❌ Error al ejecutar SP_Finaliza_Captura_Matricula: {str(e)}")
+        db.rollback()
+        raise
+
+
+def execute_sp_valida_matricula(
+    db: Session,
+    periodo: str,
+    unidad_sigla: str,
+    usuario: str,
+    host: str,
+    semaforo: int,
+    nota: str = ""
+) -> None:
+    """
+    Ejecuta SP_Valida_Matricula.
+    Este SP se ejecuta cuando un rol de validación (4 o 5) aprueba la matrícula.
+    """
+    sql = text(
+        """
+        EXEC [dbo].[SP_Valida_Matricula]
+            @PPeriodo = :periodo,
+            @UUnidad_Academica = :unidad,
+            @UUsuario = :usuario,
+            @HHost = :host,
+            @semaforo = :semaforo,
+            @NNota = :nota
+        """
+    )
+    
+    try:
+        db.execute(sql, {
+            'periodo': periodo,
+            'unidad': unidad_sigla,
+            'usuario': usuario,
+            'host': host,
+            'semaforo': int(semaforo),
+            'nota': nota or '',
+        })
+        db.commit()
+        print(f"✅ SP_Valida_Matricula ejecutado exitosamente")
+    except Exception as e:
+        print(f"❌ Error al ejecutar SP_Valida_Matricula: {str(e)}")
+        db.rollback()
+        raise
+
+
+def execute_sp_rechaza_matricula(
+    db: Session,
+    periodo: str,
+    unidad_sigla: str,
+    usuario: str,
+    host: str,
+    nota: str
+) -> None:
+    """
+    Ejecuta SP_Rechaza_Matricula.
+    Este SP se ejecuta cuando un rol de validación (4 o 5) rechaza la matrícula.
+    """
+    sql = text(
+        """
+        EXEC [dbo].[SP_Rechaza_Matricula]
+            @PPeriodo = :periodo,
+            @UUnidad_Academica = :unidad,
+            @UUsuario = :usuario,
+            @HHost = :host,
+            @NNota = :nota
+        """
+    )
+    
+    try:
+        db.execute(sql, {
+            'periodo': periodo,
+            'unidad': unidad_sigla,
+            'usuario': usuario,
+            'host': host,
+            'nota': nota or '',
+        })
+        db.commit()
+        print(f"✅ SP_Rechaza_Matricula ejecutado exitosamente")
+    except Exception as e:
+        print(f"❌ Error al ejecutar SP_Rechaza_Matricula: {str(e)}")
+        db.rollback()
+        raise
+

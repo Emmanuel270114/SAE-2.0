@@ -20,12 +20,17 @@ from backend.database.models.CatGrupoEdad import CatGrupoEdad as Grupo_Edad
 from backend.database.models.CatTipoIngreso import TipoIngreso as Tipo_Ingreso
 from backend.database.models.CatRama import CatRama as Rama
 from backend.database.models.CatSemaforo import CatSemaforo
+from backend.database.models.SemaforoUnidadAcademica import SemaforoUnidadAcademica
+from backend.database.models.Validacion import Validacion
 from backend.services.matricula_service import (
     execute_matricula_sp_with_context,
     get_matricula_metadata_from_sp,
     execute_sp_actualiza_matricula_por_unidad_academica,
     execute_sp_actualiza_matricula_por_semestre_au,
     get_estado_semaforo_desde_sp,
+    execute_sp_finaliza_captura_matricula,
+    execute_sp_valida_matricula,
+    execute_sp_rechaza_matricula,
 )
 from backend.utils.request import get_request_host
 from backend.database.models.Temp_Matricula import Temp_Matricula
@@ -43,7 +48,7 @@ async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_
     Endpoint principal para la visualización/captura de matrícula usando EXCLUSIVAMENTE Stored Procedures.
     Accesible para:
     - Rol 'Capturista' (ID 3): Captura y validación de datos
-    - Roles con ID 4 y 5: Solo visualización y validación/rechazo (sin edición)
+    - Roles con ID 4, 5, 6, 7, 8: Solo visualización y validación/rechazo (sin edición)
     TODA la información viene del SP, NO de los modelos ORM.
     """
     # Obtener datos del usuario logueado desde las cookies
@@ -57,7 +62,7 @@ async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_
     nombre_completo = " ".join(filter(None, [nombre_usuario, apellidoP_usuario, apellidoM_usuario]))
 
     # Validar que el usuario tenga uno de los roles permitidos
-    roles_permitidos = [3, 4, 5]  # 3=Capturista, 4 y 5=Roles de validación/rechazo
+    roles_permitidos = [3, 4, 5, 6, 7, 8]  # 3=Capturista, 4-8=Roles de validación/rechazo
     if id_rol not in roles_permitidos:
         return templates.TemplateResponse("error.html", {
             "request": request,
@@ -67,6 +72,7 @@ async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_
     
     # Determinar el modo de vista según el rol
     es_capturista = (id_rol == 3)
+    es_validador = (id_rol in [4, 5, 6, 7, 8])  # Roles de validación/rechazo
     modo_vista = "captura" if es_capturista else "validacion"
 
     print(f"\n{'='*60}")
@@ -205,6 +211,84 @@ async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_
     print(f"Modalidades: {len(modalidades_formatted)}")
     print(f"Semestres: {len(semestres_formatted)}")
     print(f"Turnos: {len(turnos_formatted)}")
+    
+    # VERIFICAR SI LA MATRÍCULA ESTÁ RECHAZADA (solo para capturistas)
+    rechazo_info = None
+    if es_capturista:
+        print(f"\n🔍 Verificando si hay rechazo para capturista...")
+        
+        # Consultar el semáforo de la unidad académica
+        semaforo_unidad = db.query(SemaforoUnidadAcademica).filter(
+            SemaforoUnidadAcademica.Id_Periodo == periodo_default_id,
+            SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
+            SemaforoUnidadAcademica.Id_Formato == 1  # Formato de matrícula
+        ).first()
+        
+        # Si el semáforo es 1 (Rechazado), buscar el motivo en Validacion
+        if semaforo_unidad and semaforo_unidad.Id_Semaforo == 1:
+            print(f"⚠️  Matrícula RECHAZADA detectada (Id_Semaforo = 1)")
+            
+            # Buscar el último rechazo en la tabla Validacion
+            # Validado = 0 significa Rechazo, Validado = 1 significa Validación
+            ultimo_rechazo = db.query(Validacion).filter(
+                Validacion.Id_Periodo == periodo_default_id,
+                Validacion.Id_Formato == 1,  # Formato de matrícula
+                Validacion.Validado == 0  # 0 = Rechazo
+            ).order_by(Validacion.Fecha.desc()).first()
+            
+            if ultimo_rechazo:
+                # Obtener información del usuario que rechazó
+                from backend.database.models.Usuario import Usuario
+                usuario_rechazo = db.query(Usuario).filter(
+                    Usuario.Id_Usuario == ultimo_rechazo.Id_Usuario
+                ).first()
+                
+                nombre_rechazo = "Validador"
+                if usuario_rechazo:
+                    nombre_rechazo = f"{usuario_rechazo.Nombre} {usuario_rechazo.Paterno} {usuario_rechazo.Materno}".strip()
+                
+                rechazo_info = {
+                    'motivo': ultimo_rechazo.Nota or "Sin motivo especificado",
+                    'rechazado_por': nombre_rechazo,
+                    'fecha': ultimo_rechazo.Fecha.strftime("%d/%m/%Y %H:%M") if ultimo_rechazo.Fecha else "",
+                    'periodo': periodo_default_literal,
+                    'unidad': unidad_actual.Nombre if unidad_actual else ""
+                }
+                
+                print(f"📋 Información de rechazo encontrada:")
+                print(f"   Motivo: {rechazo_info['motivo'][:50]}...")
+                print(f"   Rechazado por: {rechazo_info['rechazado_por']}")
+                print(f"   Fecha: {rechazo_info['fecha']}")
+            else:
+                print(f"⚠️  No se encontró información del rechazo en tabla Validacion")
+        else:
+            print(f"✅ Matrícula NO rechazada (Id_Semaforo = {semaforo_unidad.Id_Semaforo if semaforo_unidad else 'N/A'})")
+
+    # VERIFICAR SI EL USUARIO ACTUAL YA VALIDÓ/RECHAZÓ (para roles de validación)
+    usuario_ya_valido = False
+    usuario_ya_rechazo = False
+    
+    if es_validador:
+        print(f"\n🔍 Verificando si el usuario (ID: {request.cookies.get('id_usuario')}) ya validó/rechazó...")
+        
+        id_usuario_actual = int(request.cookies.get("id_usuario", 0))
+        
+        # Buscar si existe un registro de este usuario en Validacion para este periodo/formato
+        validacion_usuario = db.query(Validacion).filter(
+            Validacion.Id_Periodo == periodo_default_id,
+            Validacion.Id_Usuario == id_usuario_actual,
+            Validacion.Id_Formato == 1  # Formato de matrícula
+        ).first()
+        
+        if validacion_usuario:
+            if validacion_usuario.Validado == 1:
+                usuario_ya_valido = True
+                print(f"✅ Usuario YA VALIDÓ esta matrícula (Fecha: {validacion_usuario.Fecha})")
+            elif validacion_usuario.Validado == 0:
+                usuario_ya_rechazo = True
+                print(f"❌ Usuario YA RECHAZÓ esta matrícula (Fecha: {validacion_usuario.Fecha})")
+        else:
+            print(f"✅ Usuario NO ha validado/rechazado aún - Botones habilitados")
 
     return templates.TemplateResponse("matricula_consulta.html", {
         "request": request,
@@ -214,6 +298,7 @@ async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_
         "id_nivel": id_nivel,
         "id_rol": id_rol,
         "es_capturista": es_capturista,
+        "es_validador": es_validador,
         "modo_vista": modo_vista,
         "periodos": periodos,
         "unidades_academicas": unidades_academicas,
@@ -227,7 +312,10 @@ async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_
         "turnos": turnos_formatted,
         "grupos_edad": grupos_edad_formatted,
         "tipos_ingreso": tipos_ingreso_formatted,
-        "semaforo_estados": semaforo_data
+        "semaforo_estados": semaforo_data,
+        "rechazo_info": rechazo_info,  # Información del rechazo (None si no está rechazada)
+        "usuario_ya_valido": usuario_ya_valido,  # True si el usuario ya validó
+        "usuario_ya_rechazo": usuario_ya_rechazo  # True si el usuario ya rechazó
     })
 
 # Endpoint para obtener datos existentes usando SP
@@ -738,6 +826,29 @@ async def actualizar_matricula(request: Request, db: Session = Depends(get_db)):
                 nivel=nivel,
             )
             print("SP ejecutado exitosamente")
+            
+            # LIMPIAR VALIDACIONES PREVIAS cuando el capturista hace cambios
+            # Esto permite que los validadores vuelvan a validar/rechazar
+            print(f"\n🔄 Limpiando validaciones previas del periodo...")
+            id_unidad_academica = int(request.cookies.get("id_unidad_academica", 0))
+            
+            # Obtener el ID del periodo
+            periodo_obj = db.query(Periodo).filter(Periodo.Periodo == periodo).first()
+            if periodo_obj:
+                periodo_id = periodo_obj.Id_Periodo
+                
+                # Eliminar registros de validación anteriores para este periodo/formato
+                validaciones_eliminadas = db.query(Validacion).filter(
+                    Validacion.Id_Periodo == periodo_id,
+                    Validacion.Id_Formato == 1  # Formato de matrícula
+                ).delete()
+                
+                db.commit()
+                print(f"✅ {validaciones_eliminadas} validaciones previas eliminadas")
+                print(f"   Los validadores pueden volver a validar/rechazar")
+            else:
+                print(f"⚠️  No se pudo obtener ID del periodo para limpiar validaciones")
+                
         except Exception as sp_error:
             print(f"ERROR al ejecutar SP: {sp_error}")
             raise
@@ -1175,6 +1286,7 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
         # Nota: El SP requiere @SSalones, lo obtenemos del request (Total Grupos)
         total_grupos = int(data.get('total_grupos', 0) or 0)
         print(f"Total de Grupos (salones) para validación: {total_grupos}")
+        
         # Ejecutar SP de validación por semestre
         rows_list = execute_sp_actualiza_matricula_por_semestre_au(
             db,
@@ -1189,8 +1301,108 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
             nivel=nivel_nombre,
         )
         
-        print(f"\n✅ SP ejecutado exitosamente")
+        print(f"\n✅ SP_Actualiza_Matricula_Por_Semestre_AU ejecutado exitosamente")
         print(f"Filas finales devueltas: {len(rows_list)}")
+        
+        # VERIFICAR SI SE DEBE EJECUTAR SP_Finaliza_Captura_Matricula
+        print(f"\n{'='*60}")
+        print(f"🔍 VERIFICANDO CONDICIONES PARA SP_Finaliza_Captura_Matricula")
+        print(f"{'='*60}")
+        
+        # Obtener el período como ID para consultar SemaforoUnidadAcademica
+        if str(periodo).isdigit():
+            periodo_id = int(periodo)
+        else:
+            periodo_obj = db.query(Periodo).filter(Periodo.Periodo == periodo_literal).first()
+            periodo_id = periodo_obj.Id_Periodo if periodo_obj else PERIODO_DEFAULT_ID
+        
+        # Verificar el estado del semáforo general en SemaforoUnidadAcademica
+        semaforo_unidad = db.query(SemaforoUnidadAcademica).filter(
+            SemaforoUnidadAcademica.Id_Periodo == periodo_id,
+            SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
+            SemaforoUnidadAcademica.Id_Formato == 1  # Formato de matrícula
+        ).first()
+        
+        if not semaforo_unidad:
+            print(f"⚠️  No se encontró registro en SemaforoUnidadAcademica")
+            print(f"   Periodo: {periodo_id}, Unidad: {id_unidad_academica}, Formato: 1")
+            debe_ejecutar_sp_final = False
+        elif semaforo_unidad.Id_Semaforo == 3:
+            print(f"⏭️  SemaforoUnidadAcademica ya está en estado 3 (COMPLETADO)")
+            print(f"   SP_Finaliza_Captura_Matricula ya fue ejecutado previamente")
+            debe_ejecutar_sp_final = False
+        elif semaforo_unidad.Id_Semaforo == 2:
+            print(f"✅ SemaforoUnidadAcademica está en estado 2 (CAPTURA)")
+            print(f"🔍 Verificando que TODOS los semestres estén en estado 3...")
+            
+            # Verificar que TODOS los semestres tengan semáforo 3
+            # Obtenemos todos los semestres del SP
+            rows_metadata, metadata_filas, dbg = execute_matricula_sp_with_context(
+                db,
+                id_unidad_academica,
+                id_nivel,
+                periodo_literal,
+                periodo_literal,
+                usuario_sp,
+                host_sp,
+            )
+            
+            # Contar semestres y verificar sus estados
+            semestres_totales = set()
+            semestres_completados = set()
+            
+            for row in rows_metadata:
+                semestre_row = str(row.get('Semestre', ''))
+                id_semaforo_row = row.get('Id_Semaforo')
+                
+                if semestre_row:
+                    semestres_totales.add(semestre_row)
+                    if id_semaforo_row == 3:
+                        semestres_completados.add(semestre_row)
+            
+            print(f"   📊 Semestres totales: {len(semestres_totales)}")
+            print(f"   ✅ Semestres completados (estado 3): {len(semestres_completados)}")
+            print(f"   📋 Todos los semestres: {sorted(semestres_totales)}")
+            print(f"   ✅ Semestres con estado 3: {sorted(semestres_completados)}")
+            
+            if len(semestres_completados) == len(semestres_totales) and len(semestres_totales) > 0:
+                print(f"\n✅ CONDICIONES CUMPLIDAS:")
+                print(f"   ✅ Todos los semestres están en estado 3")
+                print(f"   ✅ SemaforoUnidadAcademica está en estado 2")
+                debe_ejecutar_sp_final = True
+            else:
+                print(f"\n⏭️  NO se ejecutará SP_Finaliza_Captura_Matricula:")
+                print(f"   Faltan {len(semestres_totales) - len(semestres_completados)} semestres por completar")
+                debe_ejecutar_sp_final = False
+        else:
+            print(f"⚠️  SemaforoUnidadAcademica en estado desconocido: {semaforo_unidad.Id_Semaforo}")
+            debe_ejecutar_sp_final = False
+        
+        # Ejecutar SP_Finaliza_Captura_Matricula solo si se cumplen las condiciones
+        sp_final_ejecutado = False
+        if debe_ejecutar_sp_final:
+            print(f"\n{'='*60}")
+            print(f"🚀 EJECUTANDO SP_Finaliza_Captura_Matricula")
+            print(f"{'='*60}")
+            
+            execute_sp_finaliza_captura_matricula(
+                db,
+                unidad_sigla=unidad_sigla,
+                programa_nombre=programa_nombre,
+                modalidad_nombre=modalidad_nombre,
+                semestre_nombre=semestre_nombre,
+                salones=total_grupos,
+                usuario=usuario_sp,
+                periodo=periodo_literal,
+                host=host_sp,
+                nivel=nivel_nombre,
+            )
+            
+            print(f"✅ SP_Finaliza_Captura_Matricula ejecutado exitosamente")
+            print(f"   SemaforoUnidadAcademica ahora debería estar en estado 3")
+            sp_final_ejecutado = True
+        else:
+            print(f"\n⏭️  SP_Finaliza_Captura_Matricula NO ejecutado (condiciones no cumplidas)")
         
         # Verificar semáforo sin SQL crudo: reconsultar SP y extraer estado
         print(f"\n🔍 Consultando estado actualizado del semáforo vía SP...")
@@ -1206,15 +1418,27 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
             semestre_nombre=semestre_nombre,
         )
         
+        # Construir lista de SPs ejecutados
+        sps_ejecutados = ["SP_Actualiza_Matricula_Por_Semestre_AU"]
+        if sp_final_ejecutado:
+            sps_ejecutados.append("SP_Finaliza_Captura_Matricula")
+        
+        # Mensaje apropiado según si se ejecutó el SP final
+        if sp_final_ejecutado:
+            mensaje = f"Semestre {semestre_nombre} consolidado. ¡TODA LA CAPTURA FINALIZADA!"
+        else:
+            mensaje = f"Semestre {semestre_nombre} consolidado (aún faltan semestres por completar)"
+        
         return {
             "success": True,
-            "mensaje": f"SP FINAL ejecutado - {semestre_nombre} consolidado completamente",
+            "mensaje": mensaje,
             "rows": rows_list,
             "semestre_validado": semestre_nombre,
             "estado_semaforo": estado_semaforo_actualizado,
-            "fase": "sp_final_consolidado",
+            "sp_final_ejecutado": sp_final_ejecutado,
+            "fase": "sp_final_consolidado" if sp_final_ejecutado else "sp_semestre_actualizado",
             "debug": {
-                "sp_ejecutado": "SP_Actualiza_Matricula_Por_Semestre_AU",
+                "sp_ejecutados": sps_ejecutados,
                 "parametros": {
                     "unidad": unidad_sigla,
                     "programa": programa_nombre,
@@ -1244,17 +1468,27 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
 @router.post("/validar_semestre_rol")
 async def validar_semestre_rol(request: Request, db: Session = Depends(get_db)):
     """
-    Endpoint para que roles de validación (ID 4 y 5) aprueben un semestre completo.
-    Marca el semestre como validado y lo bloquea para futuras modificaciones.
+    Endpoint para que roles de validación (ID 4, 5, 6, 7, 8) aprueben la matrícula completa.
+    Ejecuta SP_Valida_Matricula para marcar como validada.
     """
     try:
         # Obtener datos del usuario desde cookies
-        usuario = request.cookies.get("usuario", "")
+        usuario = request.cookies.get("usuario", "")  # Login del usuario
+        nombre_usuario = request.cookies.get("nombre_usuario", "")
+        apellidoP_usuario = request.cookies.get("apellidoP_usuario", "")
+        apellidoM_usuario = request.cookies.get("apellidoM_usuario", "")
         id_usuario = int(request.cookies.get("id_usuario", 0))
         id_rol = int(request.cookies.get("id_rol", 0))
+        id_unidad_academica = int(request.cookies.get("id_unidad_academica", 0))
+        
+        # Construir nombre completo para mostrar
+        nombre_completo = f"{nombre_usuario} {apellidoP_usuario} {apellidoM_usuario}".strip()
+        
+        # IMPORTANTE: El SP espera el LOGIN del usuario en @UUsuario
+        usuario_sp = usuario or 'sistema'
         
         # Validar que sea un rol de validación
-        if id_rol not in [4, 5]:
+        if id_rol not in [4, 5, 6, 7, 8]:
             return {
                 "success": False,
                 "error": "Solo los roles de validación pueden usar esta función"
@@ -1263,52 +1497,137 @@ async def validar_semestre_rol(request: Request, db: Session = Depends(get_db)):
         # Obtener datos del request
         body = await request.json()
         periodo_id = body.get("periodo")
-        programa_id = body.get("programa")
-        modalidad_id = body.get("modalidad")
-        semestre_id = body.get("semestre")
         
-        print(f"\n✅ Validación de semestre por rol {id_rol} - Usuario: {usuario}")
-        print(f"   Periodo: {periodo_id}, Programa: {programa_id}, Modalidad: {modalidad_id}, Semestre: {semestre_id}")
+        # Obtener host
+        host_sp = get_request_host(request)
         
-        # Aquí se implementará la lógica de validación
-        # Por ahora, retornamos éxito
+        print(f"\n{'='*60}")
+        print(f"✅ VALIDACIÓN DE MATRÍCULA - ROL {id_rol}")
+        print(f"{'='*60}")
+        print(f"Usuario: {usuario_sp}")
+        print(f"Periodo ID: {periodo_id}")
+        print(f"Unidad Académica ID: {id_unidad_academica}")
+        print(f"Host: {host_sp}")
+        
+        # Convertir período a literal si viene como ID
+        if str(periodo_id).isdigit():
+            periodo_obj = db.query(Periodo).filter(Periodo.Id_Periodo == int(periodo_id)).first()
+            periodo_literal = periodo_obj.Periodo if periodo_obj else PERIODO_DEFAULT_LITERAL
+            print(f"🔄 Período convertido de ID {periodo_id} → '{periodo_literal}'")
+        else:
+            periodo_literal = str(periodo_id)
+            print(f"✅ Período en literal: '{periodo_literal}'")
+        
+        # Obtener sigla de la unidad académica
+        unidad = db.query(Unidad_Academica).filter(
+            Unidad_Academica.Id_Unidad_Academica == id_unidad_academica
+        ).first()
+        unidad_sigla = unidad.Sigla if unidad else ''
+        
+        if not unidad_sigla:
+            return {
+                "success": False,
+                "error": "No se pudo obtener la Unidad Académica"
+            }
+        
+        print(f"📋 Unidad Académica: {unidad_sigla}")
+        
+        # EJECUTAR SP_Valida_Matricula
+        print(f"\n🚀 Ejecutando SP_Valida_Matricula...")
+        print(f"   @PPeriodo = '{periodo_literal}'")
+        print(f"   @UUnidad_Academica = '{unidad_sigla}'")
+        print(f"   @UUsuario = '{usuario_sp}' (LOGIN del usuario)")
+        print(f"   @HHost = '{host_sp}'")
+        print(f"   @semaforo = 3")
+        
+        execute_sp_valida_matricula(
+            db,
+            periodo=periodo_literal,
+            unidad_sigla=unidad_sigla,
+            usuario=usuario_sp,
+            host=host_sp,
+            semaforo=3,  # Estado validado
+            nota=f"Validado por {nombre_completo}"
+        )
+        
+        print(f"✅ Matrícula validada exitosamente")
         
         return {
             "success": True,
-            "mensaje": f"Semestre validado exitosamente por {usuario}",
+            "mensaje": f"Matrícula validada exitosamente",
             "data": {
-                "validado_por": usuario,
+                "validado_por": nombre_completo,
+                "usuario_login": usuario_sp,
                 "id_usuario": id_usuario,
                 "id_rol": id_rol,
-                "fecha_validacion": datetime.now().isoformat()
+                "fecha_validacion": datetime.now().isoformat(),
+                "periodo": periodo_literal,
+                "unidad_academica": unidad_sigla
             }
         }
         
     except Exception as e:
-        print(f"\n❌ ERROR al validar semestre (rol): {str(e)}")
+        db.rollback()
+        print(f"\n❌ ERROR al validar matrícula: {str(e)}")
         import traceback
         traceback.print_exc()
         
         return {
             "success": False,
-            "error": f"Error al validar el semestre: {str(e)}"
+            "error": f"Error al validar la matrícula: {str(e)}"
         }
 
 
 @router.post("/rechazar_semestre_rol")
 async def rechazar_semestre_rol(request: Request, db: Session = Depends(get_db)):
     """
-    Endpoint para que roles de validación (ID 4 y 5) rechacen un semestre.
-    Devuelve el semestre al capturista para correcciones.
+    Endpoint para que roles de validación (ID 4, 5, 6, 7, 8) rechacen la matrícula.
+    Ejecuta SP_Rechaza_Matricula y devuelve al capturista para correcciones.
     """
     try:
         # Obtener datos del usuario desde cookies
-        usuario = request.cookies.get("usuario", "")
+        print(f"\n🔍 DEBUG: Verificando cookies disponibles...")
+        print(f"Todas las cookies: {list(request.cookies.keys())}")
+        
+        usuario = request.cookies.get("usuario", "")  # Login del usuario
+        print(f"Cookie 'usuario': '{usuario}'")
+        
+        # Si no hay cookie 'usuario', intentar con otras variantes
+        if not usuario:
+            usuario = request.cookies.get("Usuario", "")  # Intento con mayúscula
+            print(f"Cookie 'Usuario': '{usuario}'")
+        
+        if not usuario:
+            usuario = request.cookies.get("username", "")  # Otro nombre posible
+            print(f"Cookie 'username': '{usuario}'")
+        
+        nombre_usuario = request.cookies.get("nombre_usuario", "")
+        apellidoP_usuario = request.cookies.get("apellidoP_usuario", "")
+        apellidoM_usuario = request.cookies.get("apellidoM_usuario", "")
         id_usuario = int(request.cookies.get("id_usuario", 0))
         id_rol = int(request.cookies.get("id_rol", 0))
+        id_unidad_academica = int(request.cookies.get("id_unidad_academica", 0))
+        
+        print(f"Usuario extraído: '{usuario}'")
+        print(f"Nombre: {nombre_usuario} {apellidoP_usuario} {apellidoM_usuario}")
+        print(f"ID Usuario: {id_usuario}")
+        print(f"ID Rol: {id_rol}")
+        
+        # Construir nombre completo para el motivo
+        nombre_completo = f"{nombre_usuario} {apellidoP_usuario} {apellidoM_usuario}".strip()
+        
+        # IMPORTANTE: El SP espera el LOGIN del usuario en @UUsuario, NO el nombre completo
+        # El SP hace: select id_usuario from Usuarios where Usuario = @UUsuario
+        usuario_sp = usuario if usuario else 'sistema'
+        
+        print(f"⚠️ Usuario final a usar en SP: '{usuario_sp}'")
+        
+        if usuario_sp == 'sistema':
+            print(f"❌ ADVERTENCIA: No se encontró el login del usuario en las cookies!")
+            print(f"   Esto causará que el SP falle en la validación de usuario/rol")
         
         # Validar que sea un rol de validación
-        if id_rol not in [4, 5]:
+        if id_rol not in [4, 5, 6, 7, 8]:
             return {
                 "success": False,
                 "error": "Solo los roles de validación pueden usar esta función"
@@ -1317,9 +1636,6 @@ async def rechazar_semestre_rol(request: Request, db: Session = Depends(get_db))
         # Obtener datos del request
         body = await request.json()
         periodo_id = body.get("periodo")
-        programa_id = body.get("programa")
-        modalidad_id = body.get("modalidad")
-        semestre_id = body.get("semestre")
         motivo = body.get("motivo", "").strip()
         
         if not motivo:
@@ -1328,22 +1644,77 @@ async def rechazar_semestre_rol(request: Request, db: Session = Depends(get_db))
                 "error": "El motivo del rechazo es obligatorio"
             }
         
-        print(f"\n❌ Rechazo de semestre por rol {id_rol} - Usuario: {usuario}")
-        print(f"   Periodo: {periodo_id}, Programa: {programa_id}, Modalidad: {modalidad_id}, Semestre: {semestre_id}")
-        print(f"   Motivo: {motivo}")
+        # Obtener host
+        host_sp = get_request_host(request)
         
-        # Aquí se implementará la lógica de rechazo
-        # Por ahora, retornamos éxito
+        print(f"\n{'='*60}")
+        print(f"❌ RECHAZO DE MATRÍCULA - ROL {id_rol}")
+        print(f"{'='*60}")
+        print(f"Usuario: {usuario_sp}")
+        print(f"Periodo ID: {periodo_id}")
+        print(f"Unidad Académica ID: {id_unidad_academica}")
+        print(f"Host: {host_sp}")
+        print(f"Motivo: {motivo}")
+        
+        # Convertir período a literal si viene como ID
+        if str(periodo_id).isdigit():
+            periodo_obj = db.query(Periodo).filter(Periodo.Id_Periodo == int(periodo_id)).first()
+            periodo_literal = periodo_obj.Periodo if periodo_obj else PERIODO_DEFAULT_LITERAL
+            print(f"🔄 Período convertido de ID {periodo_id} → '{periodo_literal}'")
+        else:
+            periodo_literal = str(periodo_id)
+            print(f"✅ Período en literal: '{periodo_literal}'")
+        
+        # Obtener sigla de la unidad académica
+        unidad = db.query(Unidad_Academica).filter(
+            Unidad_Academica.Id_Unidad_Academica == id_unidad_academica
+        ).first()
+        unidad_sigla = unidad.Sigla if unidad else ''
+        
+        if not unidad_sigla:
+            return {
+                "success": False,
+                "error": "No se pudo obtener la Unidad Académica"
+            }
+        
+        print(f"📋 Unidad Académica: {unidad_sigla}")
+        
+        # Construir nota completa con el nombre completo del usuario para información
+        nota_completa = f"RECHAZADO por {nombre_completo}: {motivo}"
+        
+        print(f"📝 Nota completa: {nota_completa}")
+        
+        # EJECUTAR SP_Rechaza_Matricula
+        print(f"\n🚀 Ejecutando SP_Rechaza_Matricula...")
+        print(f"   @PPeriodo = '{periodo_literal}'")
+        print(f"   @UUnidad_Academica = '{unidad_sigla}'")
+        print(f"   @UUsuario = '{usuario_sp}' (LOGIN del usuario)")
+        print(f"   @HHost = '{host_sp}'")
+        print(f"   @NNota = '{nota_completa[:50]}...'")
+        
+        execute_sp_rechaza_matricula(
+            db,
+            periodo=periodo_literal,
+            unidad_sigla=unidad_sigla,
+            usuario=usuario_sp,
+            host=host_sp,
+            nota=nota_completa
+        )
+        
+        print(f"✅ Matrícula rechazada exitosamente")
         
         return {
             "success": True,
-            "mensaje": f"Semestre rechazado por {usuario}",
+            "mensaje": f"Matrícula rechazada",
             "data": {
-                "rechazado_por": usuario,
+                "rechazado_por": nombre_completo,
+                "usuario_login": usuario_sp,
                 "id_usuario": id_usuario,
                 "id_rol": id_rol,
                 "motivo": motivo,
-                "fecha_rechazo": datetime.now().isoformat()
+                "fecha_rechazo": datetime.now().isoformat(),
+                "periodo": periodo_literal,
+                "unidad_academica": unidad_sigla
             }
         }
         
