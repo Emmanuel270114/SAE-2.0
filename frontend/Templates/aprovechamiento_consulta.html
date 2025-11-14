@@ -1,24 +1,469 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 
-{% block title %}Captura de Aprovechamiento{% endblock title %}
-
-{% block styles %}
-    <link rel ="stylesheet" href="/static/css/components/header.css">
-    <link rel ="stylesheet" href="/static/css/components/tables.css">
-
-{% endblock styles %}
+{% block title %}Captura de Aprovechamiento{% endblock %}
+{% block style %}
+    <link rel="stylesheet" href="/static/css/components/header.css">
+    <link rel="stylesheet" href="/static/css/components/tables.css"
+{% endblock style %}
 
 {% block content %}
 <div class="container">
+
     <div class="header-usuarios">
-        <div class="bienvenido"> Bienvenido: <strong>{{ nombre_usuario}}</strong>
+        <div class="bienvenido">Bienvenido: <strong>{{nombre_usuario}}</strong>
             {% if periodo_default_id %}
-                &nbsp; | &nbsp; Periodo: <strong>{{ periodo_default_literal }}</strong>
+                &nbsp; | &nbsp; Periodo Actual: <strong>{{periodo_default_literal}}</strong>
             {% endif %}
             {% if unidad_actual %}
-                &nbsp; | &nbsp; Unidad Académica: <strong>{{ unidad_actual.Nombre }}</strong>
+                &nbsp; | &nbsp; Unidad Académica: <strong> {{unidad_actual.Nombre}}</strong>
             {% endif %}
         </div>
-        <form action="/mod_principal" method="get">
+        <from action"/mod_principal" method="get">
+            <button type="submit" class="btn-volver">Regresar</button>
+        </from>
+    </div>
+    
+    <div class="card-table-container">
+        {% include 'components/filters.html' %}
+    </div>
+    
+    <div class="card-table-container">
+        <div class="card-header">
+            <h3>Captura de Aprovechamiento</h3>
+            <div class="button-container">
+                <button id="btn-guardar-aprovechamiento" class="btn btn-primary">Guardar</button>
+                <button id="btn-finalizar-semestre-aprov" class="btn btn-success">Finalizar Semestre</button>
+                <button id="btn-ver-informe-aprov" class="btn btn-secondary">Ver Informe</button>
+            </div>
+        </div>
+
+        <div class="table-responsive" id="tabla-aprovechamiento-container">
+            <table class="table table-bordered table-captura" id="tabla-aprovechamiento">
+                <thead>
+                    <tr>
+                        <th class="sticky-col" style="width: 250px;">Indicador</th>
+                        <th>Hombres</th>
+                        <th>Mujeres</th>
+                        <th>Total</th>
+                        <th class="col-semaforo">Estatus</th> 
+                    </tr>
+                </thead>
+                <tbody id="tabla-aprovechamiento-body">
+                    </tbody>
+                <tfoot id="tabla-aprovechamiento-foot">
+                    <tr>
+                        <th class="sticky-col">TOTAL GENERAL</th>
+                        <td id="total-general-h">0</td>
+                        <td id="total-general-m">0</td>
+                        <td id="total-general-total">0</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="informe-panel" id="informe-panel-aprov">
+    <div class="informe-header">
+        <h3>Informe de Aprovechamiento</h3>
+        <button id="btn-cerrar-informe-aprov" class="btn-close">&times;</button>
+    </div>
+    <div class="informe-content">
+        <table class="table table-striped" id="informe-aprov-table">
+            <thead>
+                <tr>
+                    <th>Indicador</th>
+                    <th>Hombres</th>
+                    <th>Mujeres</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody id="informe-aprovechamiento-body">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+
+<script>
+    // --- Referencias a los datos de los filtros ---
+    const g_Programas = {{ programas|tojson }};
+    const g_Modalidades = {{ modalidades|tojson }};
+    const g_Semestres = {{ semestres|tojson }};
+    const g_Turnos = {{ turnos|tojson }};
+
+    // --- CORRECCIÓN: Usamos las variables directas, no session ---
+    const g_IdPeriodo = {{ id_periodo|default(0) }};
+    const g_IdUnidadAcademica = {{ id_unidad_academica|default(0) }};
+    
+    // (Datos completos de la BD)
+    let g_RawData = []; 
+    // (Datos filtrados y agrupados para la tabla)
+    let g_TablaData = {}; 
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const btnConsultar = document.getElementById('btn-consultar');
+        const btnGuardar = document.getElementById('btn-guardar-aprovechamiento');
+        const btnFinalizarSemestre = document.getElementById('btn-finalizar-semestre-aprov');
+        const tablaBody = document.getElementById('tabla-aprovechamiento-body');
+
+        // --- Evento de Consultar ---
+        btnConsultar.addEventListener('click', () => {
+            const payload = getFiltros();
+            if (!payload) return;
+
+            // showSpinner(); 
+
+            fetch('/aprovechamiento/obtener_datos_sp', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                g_RawData = data.rows; // Guardamos los datos crudos
+                renderAprovechamientoTabla(); // Renderizamos la tabla
+                // hideSpinner(); 
+            })
+            .catch(error => {
+                console.error('Error al consultar datos:', error);
+                alert('Error al consultar: ' + error.message);
+                // hideSpinner();
+            });
+        });
+
+        // --- Evento de Guardar Temporal ---
+        btnGuardar.addEventListener('click', () => {
+            const payload = prepararDatosGuardado();
+            if (payload.gridData.length === 0) {
+                alert('No hay datos para guardar.');
+                return;
+            }
+
+            // showSpinner();
+            fetch('/aprovechamiento/guardar_captura_temp', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                
+                // Si el guardado temporal fue exitoso, llamamos al SP de actualización
+                return fetch('/aprovechamiento/actualizar_aprovechamiento', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    // Enviamos solo el ID de programa para que el backend sepa el Nivel
+                    body: JSON.stringify({ programa: getFiltros().programa })
+                });
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                alert('Datos actualizados correctamente.');
+                // hideSpinner();
+                // Volvemos a consultar para refrescar semáforos
+                btnConsultar.click(); 
+            })
+            .catch(error => {
+                console.error('Error al guardar:', error);
+                alert('Error al guardar: ' + error.message);
+                // hideSpinner();
+            });
+        });
+
+        // --- Evento de Finalizar Semestre ---
+        btnFinalizarSemestre.addEventListener('click', () => {
+            const payload = getFiltros();
+            if (!payload) return;
+
+            // Confirmación
+            if (!confirm(`¿Estás seguro de finalizar la captura para este semestre?\nEsta acción actualizará el semáforo y no se podrá revertir fácilmente.`)) {
+                return;
+            }
             
-{% endblock content %}
+            // showSpinner();
+            fetch('/aprovechamiento/finalizar_semestre', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) throw new Error(data.error);
+                alert(data.message);
+                // hideSpinner();
+                // Volvemos a consultar para refrescar semáforos
+                btnConsultar.click();
+            })
+            .catch(error => {
+                console.error('Error al finalizar semestre:', error);
+                alert('Error: ' + error.message);
+                // hideSpinner();
+            });
+        });
+
+
+        // --- Renderizado de la Tabla ---
+        function renderAprovechamientoTabla() {
+            const filtros = getFiltros(true); // Obtener IDs como números
+            if (!filtros) return;
+
+            // 1. Filtramos los datos crudos (g_RawData) con los filtros del frontend
+            const datosFiltrados = g_RawData.filter(row =>
+                row.Id_Programa === filtros.programa &&
+                row.Id_Modalidad === filtros.modalidad &&
+                row.Id_Semestre === filtros.semestre &&
+                row.Id_Turno === filtros.turno
+            );
+            
+            if (datosFiltrados.length === 0) {
+                generarTablaVacia();
+                return;
+            }
+
+            // 2. Agrupamos los datos filtrados por Indicador
+            g_TablaData = {}; // Reseteamos
+            datosFiltrados.forEach(row => {
+                const indicador = row.Aprovechamiento; // OJO: El campo se llama 'Aprovechamiento' en el SP, no 'Indicador'
+                if (!g_TablaData[indicador]) {
+                    g_TablaData[indicador] = {
+                        H: 0,
+                        M: 0,
+                        Semaforo: row.Id_Semaforo, // OJO: Campo Id_Semaforo
+                        // Guardamos los IDs para el guardado
+                        id_aprovechamiento: row.Id_Aprovechamiento,
+                        id_rama: row.Id_Rama,
+                        id_nivel: row.Id_Nivel
+                    };
+                }
+                
+                // Asignamos el valor H o M
+                const valor = parseInt(row.Matricula) || 0; // OJO: El campo es 'Matricula' según el metadata
+                if (row.Sexo === 'Hombre') {
+                    g_TablaData[indicador].H = valor;
+                } else if (row.Sexo === 'Mujer') {
+                    g_TablaData[indicador].M = valor;
+                }
+            });
+
+            // 3. Construimos el HTML
+            let html = '';
+            for (const indicador in g_TablaData) {
+                const data = g_TablaData[indicador];
+                const totalFila = data.H + data.M;
+                const semaforoClass = getSemaforoClass(data.Semaforo);
+
+                html += `<tr data-indicador="${indicador}" 
+                             data-id-aprov="${data.id_aprovechamiento}" 
+                             data-id-rama="${data.id_rama}"
+                             data-id-nivel="${data.id_nivel}">
+                    <td class="sticky-col">${indicador}</td>
+                    
+                    <td><input type="number" class="input-aprovechamiento" data-sexo="H" value="${data.H}" min="0"></td>
+                    
+                    <td><input type="number" class="input-aprovechamiento" data-sexo="M" value="${data.M}" min="0"></td>
+                    
+                    <td><input type="number" class="input-total-fila" value="${totalFila}" disabled></td>
+
+                    <td class="cell-semaforo"><span class="semaforo-dot ${semaforoClass}"></span></td>
+                </tr>`;
+            }
+            tablaBody.innerHTML = html;
+
+            // 4. Añadimos listeners y calculamos totales
+            addInputListeners();
+            calcularTotalesGenerales();
+        }
+
+        function generarTablaVacia() {
+            // Esta función se puede expandir para crear la tabla vacía
+            // basada en un catálogo de 'Cat_Aprovechamiento' si se desea
+            tablaBody.innerHTML = '<tr><td colspan="5">No se encontraron datos para los filtros seleccionados o la tabla está vacía.</td></tr>';
+            calcularTotalesGenerales(); // Resetea totales
+        }
+
+        // --- Funciones de Cálculo y Guardado ---
+
+        function addInputListeners() {
+            document.querySelectorAll('.input-aprovechamiento').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    // Validar solo números
+                    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                    
+                    // Recalcular total de la fila
+                    const tr = e.target.closest('tr');
+                    const inputH = tr.querySelector('input[data-sexo="H"]');
+                    const inputM = tr.querySelector('input[data-sexo="M"]');
+                    const inputTotal = tr.querySelector('.input-total-fila');
+                    
+                    const valH = parseInt(inputH.value) || 0;
+                    const valM = parseInt(inputM.value) || 0;
+                    inputTotal.value = valH + valM;
+                    
+                    // Recalcular totales generales
+                    calcularTotalesGenerales();
+                });
+            });
+        }
+
+        function calcularTotalesGenerales() {
+            let totalH = 0;
+            let totalM = 0;
+            
+            document.querySelectorAll('#tabla-aprovechamiento-body tr').forEach(tr => {
+                const inputH = tr.querySelector('input[data-sexo="H"]');
+                const inputM = tr.querySelector('input[data-sexo="M"]');
+                if (inputH) totalH += parseInt(inputH.value) || 0;
+                if (inputM) totalM += parseInt(inputM.value) || 0;
+            });
+
+            document.getElementById('total-general-h').textContent = totalH;
+            document.getElementById('total-general-m').textContent = totalM;
+            document.getElementById('total-general-total').textContent = totalH + totalM;
+
+            // Actualizamos el informe si está visible
+            actualizarInforme();
+        }
+
+        function prepararDatosGuardado() {
+            const filtros = getFiltros(true); // IDs como números
+            const gridData = [];
+
+            document.querySelectorAll('#tabla-aprovechamiento-body tr').forEach(tr => {
+                if (tr.dataset.indicador) { // Asegurarse de que es una fila de datos
+                    const data = g_TablaData[tr.dataset.indicador];
+                    const inputH = tr.querySelector('input[data-sexo="H"]');
+                    const inputM = tr.querySelector('input[data-sexo="M"]');
+                    
+                    const valorH = inputH.value !== '' ? parseInt(inputH.value) : null;
+                    const valorM = inputM.value !== '' ? parseInt(inputM.value) : null;
+                    
+                    // Creamos un objeto para HOMBRE
+                    gridData.push({
+                        id_periodo: g_IdPeriodo,
+                        id_unidad_academica: g_IdUnidadAcademica,
+                        id_programa: filtros.programa,
+                        id_rama: data.id_rama,
+                        id_nivel: data.id_nivel,
+                        id_modalidad: filtros.modalidad,
+                        id_turno: filtros.turno,
+                        id_semestre: filtros.semestre,
+                        id_sexo: 1, // 1 = Hombre
+                        id_aprovechamiento: data.id_aprovechamiento,
+                        valor: valorH
+                    });
+                    
+                    // Creamos un objeto para MUJER
+                    gridData.push({
+                        id_periodo: g_IdPeriodo,
+                        id_unidad_academica: g_IdUnidadAcademica,
+                        id_programa: filtros.programa,
+                        id_rama: data.id_rama,
+                        id_nivel: data.id_nivel,
+                        id_modalidad: filtros.modalidad,
+                        id_turno: filtros.turno,
+                        id_semestre: filtros.semestre,
+                        id_sexo: 2, // 2 = Mujer
+                        id_aprovechamiento: data.id_aprovechamiento,
+                        valor: valorM
+                    });
+                }
+            });
+            
+            return { gridData };
+        }
+
+        // --- Funciones de Utilidad (getFiltros, getSemaforoClass) ---
+
+        function getFiltros(comoNumeros = false) {
+            const filtros = {
+                programa: document.getElementById('programa').value,
+                modalidad: document.getElementById('modalidad').value,
+                semestre: document.getElementById('semestre').value,
+                turno: document.getElementById('turno').value,
+            };
+            if (!filtros.programa || !filtros.modalidad || !filtros.semestre || !filtros.turno) {
+                // alert('Error', 'Por favor, selecciona todos los filtros.', 'error');
+                return null;
+            }
+            if (comoNumeros) {
+                return {
+                    programa: parseInt(filtros.programa),
+                    modalidad: parseInt(filtros.modalidad),
+                    semestre: parseInt(filtros.semestre),
+                    turno: parseInt(filtros.turno),
+                };
+            }
+            return filtros;
+        }
+
+        function getSemaforoClass(idSemaforo) {
+            switch (idSemaforo) {
+                case 1: return 'semaforo-rojo'; // Pendiente
+                case 2: return 'semaforo-amarillo'; // En Proceso
+                case 3: return 'semaforo-verde'; // Completado
+                default: return 'semaforo-gris'; // Otro
+            }
+        }
+        
+        // --- Lógica del Panel de Informe (Simplificada) ---
+        const btnVerInforme = document.getElementById('btn-ver-informe-aprov');
+        const btnCerrarInforme = document.getElementById('btn-cerrar-informe-aprov');
+        const panelInforme = document.getElementById('informe-panel-aprov');
+
+        function toggleInformePanel(show) {
+            if (show) {
+                actualizarInforme(); // Actualiza antes de mostrar
+                panelInforme.classList.add('visible');
+            } else {
+                panelInforme.classList.remove('visible');
+            }
+        }
+
+        btnVerInforme.addEventListener('click', () => toggleInformePanel(true));
+        btnCerrarInforme.addEventListener('click', () => toggleInformePanel(false));
+        
+        function actualizarInforme() {
+            const tablaInformeBody = document.getElementById('informe-aprovechamiento-body');
+            let html = '';
+            
+            document.querySelectorAll('#tabla-aprovechamiento-body tr').forEach(tr => {
+                if (tr.dataset.indicador) {
+                    const indicador = tr.dataset.indicador;
+                    const valH = parseInt(tr.querySelector('input[data-sexo="H"]').value) || 0;
+                    const valM = parseInt(tr.querySelector('input[data-sexo="M"]').value) || 0;
+                    const total = valH + valM;
+
+                    html += `<tr>
+                        <td>${indicador}</td>
+                        <td>${valH}</td>
+                        <td>${valM}</td>
+                        <td>${total}</td>
+                    </tr>`;
+                }
+            });
+
+            // Añadir la fila de totales
+            const totalH = document.getElementById('total-general-h').textContent;
+            const totalM = document.getElementById('total-general-m').textContent;
+            const totalT = document.getElementById('total-general-total').textContent;
+            
+            html += `<tr class="total-row">
+                <td><strong>TOTAL</strong></td>
+                <td><strong>${totalH}</strong></td>
+                <td><strong>${totalM}</strong></td>
+                <td><strong>${totalT}</strong></td>
+            </tr>`;
+            
+            tablaInformeBody.innerHTML = html;
+        }
+
+    });
+</script>
+{% endblock %}
