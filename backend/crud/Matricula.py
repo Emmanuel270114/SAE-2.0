@@ -108,7 +108,7 @@ def execute_sp_consulta_matricula(
     nivel: str,
     usuario: str = 'sistema',
     host: str = 'localhost'
-) -> Tuple[List[Dict[str, Any]], List[str]]:
+) -> Tuple[List[Dict[str, Any]], List[str], Optional[str]]:
     """
     Ejecutar el SP SP_Consulta_Matricula_Unidad_Academica y devolver las filas normalizadas.
     
@@ -121,7 +121,7 @@ def execute_sp_consulta_matricula(
         host: Host desde donde se realiza la petición
     
     Returns:
-        Tuple[List[Dict], List[str]]: (filas como dicts, nombres de columnas)
+        Tuple[List[Dict], List[str], Optional[str]]: (filas como dicts, nombres de columnas, nota de rechazo)
     """
     try:
         # Ejecutar el SP con parámetros seguros (incluyendo @UUsuario y @HHost)
@@ -140,6 +140,8 @@ def execute_sp_consulta_matricula(
             'usuario': usuario,
             'host': host
         })
+        
+        # PRIMER RESULT SET: Datos de matrícula
         rows = result.fetchall()
 
         # Obtener nombres de columnas si el driver los provee
@@ -167,12 +169,25 @@ def execute_sp_consulta_matricula(
                 rows_list.append(row_dict)
             except Exception:
                 continue
+        
+        # SEGUNDO RESULT SET: Nota de rechazo (si existe)
+        nota_rechazo = None
+        try:
+            if result.nextset():
+                nota_rows = result.fetchall()
+                if nota_rows and len(nota_rows) > 0:
+                    # El SP devuelve una sola columna 'Nota'
+                    nota_rechazo = nota_rows[0][0] if nota_rows[0][0] else None
+                    if nota_rechazo:
+                        print(f"📋 Nota de rechazo capturada del SP: {nota_rechazo[:100]}...")
+        except Exception as e:
+            print(f"⚠️ No se pudo capturar segundo result set (Nota): {e}")
 
-        return rows_list, columns
+        return rows_list, columns, nota_rechazo
 
     except Exception as e:
         print(f"Error ejecutando SP: {e}")
-        return [], []
+        return [], [], None
 
 
 def resolve_periodo_by_id_or_literal(db: Session, periodo_input: str, default: str = "2025-2026/1") -> str:

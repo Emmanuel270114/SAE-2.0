@@ -31,6 +31,7 @@ from backend.services.matricula_service import (
     execute_sp_finaliza_captura_matricula,
     execute_sp_valida_matricula,
     execute_sp_rechaza_matricula,
+    extract_unique_values_from_sp,
 )
 from backend.utils.request import get_request_host
 from backend.database.models.Temp_Matricula import Temp_Matricula
@@ -119,7 +120,8 @@ async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_
     host_sp = get_request_host(request)
 
     # Obtener TODOS los metadatos desde el SP (con usuario y host)
-    metadata = get_matricula_metadata_from_sp(
+    # El SP también devuelve la nota de rechazo si existe
+    rows_sp, metadata_sp, debug_msg_sp, nota_rechazo_sp = execute_matricula_sp_with_context(
         db=db,
         id_unidad_academica=id_unidad_academica,
         id_nivel=id_nivel,
@@ -128,6 +130,9 @@ async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_
         usuario=usuario_sp,
         host=host_sp
     )
+
+    # Usar metadata del SP
+    metadata = extract_unique_values_from_sp(rows_sp)
 
     # Verificar si hubo error
     if 'error' in metadata and metadata['error']:
@@ -214,55 +219,50 @@ async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_
     
     # VERIFICAR SI LA MATRÍCULA ESTÁ RECHAZADA (solo para capturistas)
     rechazo_info = None
-    if es_capturista:
-        print(f"\n🔍 Verificando si hay rechazo para capturista...")
+    if es_capturista and nota_rechazo_sp:
+        print(f"\n🔍 Matrícula RECHAZADA detectada - Nota del SP")
         
-        # Consultar el semáforo de la unidad académica
-        semaforo_unidad = db.query(SemaforoUnidadAcademica).filter(
-            SemaforoUnidadAcademica.Id_Periodo == periodo_default_id,
-            SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
-            SemaforoUnidadAcademica.Id_Formato == 1  # Formato de matrícula
-        ).first()
+        # El SP ya nos trajo la nota de rechazo
+        # Ahora solo necesitamos obtener información adicional del usuario que rechazó
+        ultimo_rechazo = db.query(Validacion).filter(
+            Validacion.Id_Periodo == periodo_default_id,
+            Validacion.Id_Formato == 1,  # Formato de matrícula
+            Validacion.Validado == 0  # 0 = Rechazo
+        ).order_by(Validacion.Fecha.desc()).first()
         
-        # Si el semáforo es 1 (Rechazado), buscar el motivo en Validacion
-        if semaforo_unidad and semaforo_unidad.Id_Semaforo == 1:
-            print(f"⚠️  Matrícula RECHAZADA detectada (Id_Semaforo = 1)")
+        if ultimo_rechazo:
+            # Obtener información del usuario que rechazó
+            from backend.database.models.Usuario import Usuario
+            usuario_rechazo = db.query(Usuario).filter(
+                Usuario.Id_Usuario == ultimo_rechazo.Id_Usuario
+            ).first()
             
-            # Buscar el último rechazo en la tabla Validacion
-            # Validado = 0 significa Rechazo, Validado = 1 significa Validación
-            ultimo_rechazo = db.query(Validacion).filter(
-                Validacion.Id_Periodo == periodo_default_id,
-                Validacion.Id_Formato == 1,  # Formato de matrícula
-                Validacion.Validado == 0  # 0 = Rechazo
-            ).order_by(Validacion.Fecha.desc()).first()
+            nombre_rechazo = "Validador"
+            if usuario_rechazo:
+                nombre_rechazo = f"{usuario_rechazo.Nombre} {usuario_rechazo.Paterno} {usuario_rechazo.Materno}".strip()
             
-            if ultimo_rechazo:
-                # Obtener información del usuario que rechazó
-                from backend.database.models.Usuario import Usuario
-                usuario_rechazo = db.query(Usuario).filter(
-                    Usuario.Id_Usuario == ultimo_rechazo.Id_Usuario
-                ).first()
-                
-                nombre_rechazo = "Validador"
-                if usuario_rechazo:
-                    nombre_rechazo = f"{usuario_rechazo.Nombre} {usuario_rechazo.Paterno} {usuario_rechazo.Materno}".strip()
-                
-                rechazo_info = {
-                    'motivo': ultimo_rechazo.Nota or "Sin motivo especificado",
-                    'rechazado_por': nombre_rechazo,
-                    'fecha': ultimo_rechazo.Fecha.strftime("%d/%m/%Y %H:%M") if ultimo_rechazo.Fecha else "",
-                    'periodo': periodo_default_literal,
-                    'unidad': unidad_actual.Nombre if unidad_actual else ""
-                }
-                
-                print(f"📋 Información de rechazo encontrada:")
-                print(f"   Motivo: {rechazo_info['motivo'][:50]}...")
-                print(f"   Rechazado por: {rechazo_info['rechazado_por']}")
-                print(f"   Fecha: {rechazo_info['fecha']}")
-            else:
-                print(f"⚠️  No se encontró información del rechazo en tabla Validacion")
+            rechazo_info = {
+                'motivo': nota_rechazo_sp,  # Usar la nota que viene del SP
+                'rechazado_por': nombre_rechazo,
+                'fecha': ultimo_rechazo.Fecha.strftime("%d/%m/%Y %H:%M") if ultimo_rechazo.Fecha else "",
+                'periodo': periodo_default_literal,
+                'unidad': unidad_actual.Nombre if unidad_actual else ""
+            }
+            
+            print(f"📋 Información de rechazo del SP:")
+            print(f"   Motivo: {rechazo_info['motivo'][:100]}...")
+            print(f"   Rechazado por: {rechazo_info['rechazado_por']}")
+            print(f"   Fecha: {rechazo_info['fecha']}")
         else:
-            print(f"✅ Matrícula NO rechazada (Id_Semaforo = {semaforo_unidad.Id_Semaforo if semaforo_unidad else 'N/A'})")
+            # Si no hay registro en Validacion pero el SP trajo nota, usar datos básicos
+            rechazo_info = {
+                'motivo': nota_rechazo_sp,
+                'rechazado_por': "Validador",
+                'fecha': "",
+                'periodo': periodo_default_literal,
+                'unidad': unidad_actual.Nombre if unidad_actual else ""
+            }
+            print(f"⚠️  Nota de rechazo del SP pero sin registro en Validacion")
 
     # VERIFICAR SI EL USUARIO ACTUAL YA VALIDÓ/RECHAZÓ (para roles de validación)
     usuario_ya_valido = False
@@ -355,7 +355,7 @@ async def obtener_datos_existentes_sp(
         print(f"Host: {host_sp}")
 
         # Ejecutar SP y obtener metadatos (con usuario y host)
-        rows_list, metadata, debug_msg = execute_matricula_sp_with_context(
+        rows_list, metadata, debug_msg, nota_rechazo = execute_matricula_sp_with_context(
             db=db,
             id_unidad_academica=id_unidad_academica,
             id_nivel=id_nivel,
@@ -401,7 +401,7 @@ async def debug_sp(request: Request, db: Session = Depends(get_db)):
         host_sp = get_request_host(request)
 
         periodo = '2025-2026/1'
-        rows, metadata, debug_msg = execute_matricula_sp_with_context(
+        rows, metadata, debug_msg, nota_rechazo = execute_matricula_sp_with_context(
             db,
             id_unidad_academica,
             id_nivel,
@@ -1337,7 +1337,7 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
             
             # Verificar que TODOS los semestres tengan semáforo 3
             # Obtenemos todos los semestres del SP
-            rows_metadata, metadata_filas, dbg = execute_matricula_sp_with_context(
+            rows_metadata, metadata_filas, dbg, nota_rechazo_check = execute_matricula_sp_with_context(
                 db,
                 id_unidad_academica,
                 id_nivel,
