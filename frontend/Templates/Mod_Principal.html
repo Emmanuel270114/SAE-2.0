@@ -20,6 +20,7 @@
         <div class="botones-menu">
             <button id="Btn_Catalogos" class="btn-menu">Catálogos</button>
             <button id="Btn_Matricula" class="btn-menu">Captura de Matrícula</button>
+            <button id="Btn_Aprovechamiento" class="btn-menu">Aprovechamiento Académico</button>
             <button id="Btn_Dashboard" class="btn-menu">DashBoard SAE</button>
         </div>
         <script>
@@ -32,6 +33,10 @@
                 window.location.href = '/matricula/consulta';
             });
 
+            // Navegar a la página de aprovechamiento académico
+            document.getElementById('Btn_Aprovechamiento').addEventListener('click', function() {
+                window.location.href = '/aprovechamiento/consulta';
+            });
             // Abrir el dashboard externo de Power BI
             document.getElementById('Btn_Dashboard').addEventListener('click', function() {
                 const url = 'https://app.powerbi.com/links/cnsvi3jDc1?ctid=f94bf4d9-8097-4794-adf6-a5466ca28563&pbi_source=linkShare';
