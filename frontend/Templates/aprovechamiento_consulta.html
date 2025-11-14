@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Captura de Aprovechamiento{% endblock title %}
+
+{% block styles %}
+    <link rel ="stylesheet" href="/static/css/components/header.css">
+    <link rel ="stylesheet" href="/static/css/components/tables.css">
+
+{% endblock styles %}
+
+{% block content %}
+<div class="container">
+    <div class="header-usuarios">
+        <div class="bienvenido"> Bienvenido: <strong>{{ nombre_usuario}}</strong>
+            {% if periodo_default_id %}
+                &nbsp; | &nbsp; Periodo: <strong>{{ periodo_default_literal }}</strong>
+            {% endif %}
+            {% if unidad_actual %}
+                &nbsp; | &nbsp; Unidad Académica: <strong>{{ unidad_actual.Nombre }}</strong>
+            {% endif %}
+        </div>
+        <form action="/mod_principal" method="get">
+            
+{% endblock content %}
