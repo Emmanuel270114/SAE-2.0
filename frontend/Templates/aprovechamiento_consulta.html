@@ -3,7 +3,8 @@
 {% block title %}Captura de Aprovechamiento{% endblock %}
 {% block style %}
     <link rel="stylesheet" href="/static/css/components/header.css">
-    <link rel="stylesheet" href="/static/css/components/tables.css"
+    <link rel="stylesheet" href="/static/css/components/tables.css">
+    <link rel="stylesheet" href="/static/css/components/aprovechamiento_consulta.css"
 {% endblock style %}
 
 {% block content %}
@@ -18,7 +19,7 @@
                 &nbsp; | &nbsp; Unidad Académica: <strong> {{unidad_actual.Nombre}}</strong>
             {% endif %}
         </div>
-        <from action"/mod_principal" method="get">
+        <from action"//mod_principal" method="get">
             <button type="submit" class="btn-volver">Regresar</button>
         </from>
     </div>
@@ -27,15 +28,68 @@
         {% include 'components/filters.html' %}
     </div>
     
-    <div class="card-table-container">
-        <div class="card-header">
-            <h3>Captura de Aprovechamiento</h3>
-            <div class="button-container">
-                <button id="btn-guardar-aprovechamiento" class="btn btn-primary">Guardar</button>
-                <button id="btn-finalizar-semestre-aprov" class="btn btn-success">Finalizar Semestre</button>
-                <button id="btn-ver-informe-aprov" class="btn btn-secondary">Ver Informe</button>
-            </div>
+    <h3>Captura de Aprovechamiento</h3>
+    
+    {% if not programas %}
+        <div class="alert-info">
+            <strong>Información:</strong> No hay programas disponibles pas su nivel y unidad académica.
         </div>
+    {% endif %}
+    <!--Sección de filtros con diseño horizontal-->
+
+    <div class="filtros-container">
+        <div class="filtros-row">
+            <!-- Periodo removido de los filtros:usamos el periodo por defecto en el header -->
+            <input type="hiden" id="periodo" name="periodo" value="{{periodo_default_id}}">
+
+            <div class="filtro-item">
+                <label for="programa"><strong>Programa Académico:</strong></label>
+                <select id"programa" name="programa" required>
+                    {% for programa in programas %}
+                    <option value="{{programa.Id_Programa}}"data-max-semestre="{{programa.Id_Semestre}}">{{programa.Nombre_Programa}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="filtro-item">
+                <label for="modalidad"><strong>Modalidad:</strong></label>
+                <select id="modalidad" name="modalidad" required>
+                    {% for modalidad in modalidades %}
+                    <option value="{{modalidad.Id_Modalidad}}">{{modalidad.Modalidad}}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <!--Campos ocultos para semestre y turno (semanejan con pestañas y botones)-->
+            <input type="hidden" id="semestre" name="semestre" value="1">
+            <input type="hidden" id="turno" name="turno" value="1">" 
+
+            <!--Unidad Académica removida de los filtros: mostrando la UA en el header y la enviamos como hidden-->
+            {% if unidad_actual %}
+                <input type="hidden" id="unidad_academica" name="unidad_academica" value="{{unidad_academica.Id_Unidad_Academica}}"> 
+            {% else %}
+                <input type="hidden" id="unidad_academica" name="unidad_academica" value="0">
+            {% endif %}
+        </div>
+    
+    <!--Leyenda del Semáforo-->
+    <div class="semaforo-leyenda">
+        <div class="leyenda-titulo">
+            <span style="font-weight: 600; color: #6e0343;">Estado de Semestre</span> 
+        </div>
+        <div class="leyenda-items">
+            <div class="leyenda-item">
+                <div class="leyenda-color" style="background-color: #ff4444"></div>
+                    <span class="leyenda-texto"> Sin datos</span>
+            </div>
+            <div class="leyenda-item">
+                <div class="leyenda-color" style="background-color: #ffbb33"></div>
+                    <span class="leyenda-item">Datos Parciales</span>
+            </div>
+            <div class="leyenda-item">
+                <span class="leyenda-color" style="background-color: #00C851"></span>
+                <span>Datos Completos</span>
+            </div>
+    <!--Sección de captura con tabla completa-->
 
         <div class="table-responsive" id="tabla-aprovechamiento-container">
             <table class="table table-bordered table-captura" id="tabla-aprovechamiento">
