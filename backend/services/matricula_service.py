@@ -104,7 +104,7 @@ def get_matricula_metadata_from_sp(
         periodo_nombre = resolve_periodo_by_id_or_literal(db, periodo_input or default_periodo, default_periodo)
         
         # Ejecutar SP con parámetros de usuario y host
-        rows_list, columns = execute_sp_consulta_matricula(
+        rows_list, columns, nota_rechazo = execute_sp_consulta_matricula(
             db, 
             unidad_sigla, 
             periodo_nombre, 
@@ -116,6 +116,9 @@ def get_matricula_metadata_from_sp(
         print(f"\n=== EXTRAYENDO METADATOS DEL SP ===")
         print(f"Total de filas obtenidas: {len(rows_list)}")
         print(f"Columnas disponibles: {columns}")
+        
+        if nota_rechazo:
+            print(f"📋 Nota de rechazo del SP en metadatos: {nota_rechazo[:100]}...")
         
         if not rows_list:
             print("⚠️ El SP no devolvió datos")
@@ -164,7 +167,7 @@ def execute_matricula_sp_with_context(
     default_periodo: str = "2025-2026/1",
     usuario: str = 'sistema',
     host: str = 'localhost'
-) -> Tuple[List[Dict[str, Any]], Dict[str, Any], str]:
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any], str, Optional[str]]:
     """
     Ejecutar SP de matrícula con contexto de usuario y devolver datos normalizados.
     SOLO filtra por estatus activo, NO procesa ni agrega datos.
@@ -179,16 +182,16 @@ def execute_matricula_sp_with_context(
         host: Host desde donde se realiza la petición
         
     Returns:
-        Tuple[List[Dict], Dict[str, Any], str]: (filas_sp_activas, metadatos_extraídos, mensaje_debug)
+        Tuple[List[Dict], Dict[str, Any], str, Optional[str]]: (filas_sp_activas, metadatos_extraídos, mensaje_debug, nota_rechazo)
     """
     try:
         # Resolver información de unidad y nivel
         unidad_sigla, nivel_nombre = get_unidad_and_nivel_info(db, id_unidad_academica, id_nivel)
         
         if not unidad_sigla:
-            return [], {}, f"Error: Unidad Académica con id {id_unidad_academica} no encontrada"
+            return [], {}, f"Error: Unidad Académica con id {id_unidad_academica} no encontrada", None
         if not nivel_nombre:
-            return [], {}, f"Error: Nivel con id {id_nivel} no encontrado"
+            return [], {}, f"Error: Nivel con id {id_nivel} no encontrado", None
             
         # Resolver periodo
         periodo_nombre = resolve_periodo_by_id_or_literal(db, periodo_input or default_periodo, default_periodo)
@@ -198,7 +201,7 @@ def execute_matricula_sp_with_context(
         print(f"Usuario: {usuario}, Host: {host}")
         
         # Ejecutar SP con parámetros de usuario y host
-        rows_list, columns = execute_sp_consulta_matricula(
+        rows_list, columns, nota_rechazo = execute_sp_consulta_matricula(
             db, 
             unidad_sigla, 
             periodo_nombre, 
@@ -244,14 +247,17 @@ def execute_matricula_sp_with_context(
         
         debug_msg = f"SP ejecutado correctamente, {len(rows_processed)} filas. Unidad: {unidad_sigla}, Periodo: {periodo_nombre}, Nivel: {nivel_nombre}"
         
-        return rows_processed, metadata, debug_msg
+        if nota_rechazo:
+            print(f"✅ Nota de rechazo del SP: {nota_rechazo[:100]}...")
+        
+        return rows_processed, metadata, debug_msg, nota_rechazo
         
     except Exception as e:
         error_msg = f"Error al ejecutar SP de matrícula: {str(e)}"
         print(error_msg)
         import traceback
         traceback.print_exc()
-        return [], {}, error_msg
+        return [], {}, error_msg, None
 
 
 # =============================
@@ -394,7 +400,7 @@ def get_estado_semaforo_desde_sp(
     semestre_nombre: str,
 ) -> Optional[int]:
     """Consulta el SP de matrícula y devuelve el Id_Semaforo para el contexto solicitado."""
-    rows, _meta, _dbg = execute_matricula_sp_with_context(
+    rows, _meta, _dbg, _nota = execute_matricula_sp_with_context(
         db,
         id_unidad_academica,
         id_nivel,
@@ -418,3 +424,137 @@ def get_estado_semaforo_desde_sp(
                     except Exception:
                         continue
     return None
+
+
+def execute_sp_finaliza_captura_matricula(
+    db: Session,
+    unidad_sigla: str,
+    programa_nombre: str,
+    modalidad_nombre: str,
+    semestre_nombre: str,
+    salones: int,
+    usuario: str,
+    periodo: str,
+    host: str,
+    nivel: str,
+) -> None:
+    """
+    Ejecuta SP_Finaliza_Captura_Matricula.
+    Este SP se ejecuta automáticamente después de SP_Actualiza_Matricula_Por_Semestre_AU
+    para finalizar completamente la captura del semestre.
+    """
+    sql = text(
+        """
+        EXEC [dbo].[SP_Finaliza_Captura_Matricula]
+            @UUnidad_Academica = :unidad,
+            @PPrograma = :programa,
+            @MModalidad = :modalidad,
+            @SSemestre = :semestre,
+            @SSalones = :salones,
+            @UUsuario = :usuario,
+            @PPeriodo = :periodo,
+            @HHost = :host,
+            @NNivel = :nivel
+        """
+    )
+    
+    try:
+        db.execute(sql, {
+            'unidad': unidad_sigla,
+            'programa': programa_nombre,
+            'modalidad': modalidad_nombre,
+            'semestre': semestre_nombre,
+            'salones': int(salones) if salones is not None else 0,
+            'usuario': usuario,
+            'periodo': periodo,
+            'host': host,
+            'nivel': nivel,
+        })
+        db.commit()
+        print(f"✅ SP_Finaliza_Captura_Matricula ejecutado exitosamente")
+    except Exception as e:
+        print(f"❌ Error al ejecutar SP_Finaliza_Captura_Matricula: {str(e)}")
+        db.rollback()
+        raise
+
+
+def execute_sp_valida_matricula(
+    db: Session,
+    periodo: str,
+    unidad_sigla: str,
+    usuario: str,
+    host: str,
+    semaforo: int,
+    nota: str = ""
+) -> None:
+    """
+    Ejecuta SP_Valida_Matricula.
+    Este SP se ejecuta cuando un rol de validación (4 o 5) aprueba la matrícula.
+    """
+    sql = text(
+        """
+        EXEC [dbo].[SP_Valida_Matricula]
+            @PPeriodo = :periodo,
+            @UUnidad_Academica = :unidad,
+            @UUsuario = :usuario,
+            @HHost = :host,
+            @semaforo = :semaforo,
+            @NNota = :nota
+        """
+    )
+    
+    try:
+        db.execute(sql, {
+            'periodo': periodo,
+            'unidad': unidad_sigla,
+            'usuario': usuario,
+            'host': host,
+            'semaforo': int(semaforo),
+            'nota': nota or '',
+        })
+        db.commit()
+        print(f"✅ SP_Valida_Matricula ejecutado exitosamente")
+    except Exception as e:
+        print(f"❌ Error al ejecutar SP_Valida_Matricula: {str(e)}")
+        db.rollback()
+        raise
+
+
+def execute_sp_rechaza_matricula(
+    db: Session,
+    periodo: str,
+    unidad_sigla: str,
+    usuario: str,
+    host: str,
+    nota: str
+) -> None:
+    """
+    Ejecuta SP_Rechaza_Matricula.
+    Este SP se ejecuta cuando un rol de validación (4 o 5) rechaza la matrícula.
+    """
+    sql = text(
+        """
+        EXEC [dbo].[SP_Rechaza_Matricula]
+            @PPeriodo = :periodo,
+            @UUnidad_Academica = :unidad,
+            @UUsuario = :usuario,
+            @HHost = :host,
+            @NNota = :nota
+        """
+    )
+    
+    try:
+        db.execute(sql, {
+            'periodo': periodo,
+            'unidad': unidad_sigla,
+            'usuario': usuario,
+            'host': host,
+            'nota': nota or '',
+        })
+        db.commit()
+        print(f"✅ SP_Rechaza_Matricula ejecutado exitosamente")
+    except Exception as e:
+        print(f"❌ Error al ejecutar SP_Rechaza_Matricula: {str(e)}")
+        db.rollback()
+        raise
+

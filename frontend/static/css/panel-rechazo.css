@@ -1,0 +1,642 @@
+/* ========================================
+   ESTILOS PARA PANEL DE RECHAZO
+   Sistema de Matrícula - SAE
+   ======================================== */
+
+/* ========================================
+   BANNER DE RECHAZO SUPERIOR (CAPTURISTA)
+   ======================================== */
+
+/* Banner de Rechazo Superior */
+.banner-rechazo {
+    position: fixed;
+    top: 60px; /* Debajo del header */
+    left: 0;
+    right: 0;
+    z-index: 999;
+    background: linear-gradient(135deg, #8b2332 0%, #a02f41 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(139, 35, 50, 0.4);
+    border-bottom: 3px solid #6a1a27;
+    animation: slideDownBanner 0.5s ease-out;
+    display: flex;
+    align-items: stretch;
+    max-width: 100%;
+}
+
+.banner-rechazo-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.2);
+    border-right: 2px solid rgba(255, 255, 255, 0.2);
+    min-width: 80px;
+}
+
+.icono-advertencia-grande {
+    font-size: 48px;
+    animation: pulseWarning 2s infinite;
+    filter: drop-shadow(0 0 8px rgba(255, 193, 7, 0.6));
+}
+
+.banner-rechazo-content {
+    flex: 1;
+    padding: 15px 25px;
+}
+
+.banner-rechazo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.banner-rechazo-header h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.btn-cerrar-banner {
+    background: rgba(255, 255, 255, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.btn-cerrar-banner:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: rotate(90deg) scale(1.1);
+}
+
+.banner-rechazo-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.rechazo-motivo {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border-left: 4px solid #ffc107;
+}
+
+.rechazo-motivo strong {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 6px;
+    color: #ffc107;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.rechazo-motivo p {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.5;
+    color: #fff;
+}
+
+.rechazo-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    font-size: 13px;
+    opacity: 0.95;
+}
+
+.rechazo-meta strong {
+    color: #ffc107;
+}
+
+.separador {
+    color: rgba(255, 255, 255, 0.5);
+    margin: 0 4px;
+}
+
+.rechazo-instrucciones {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 10px 14px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.rechazo-instrucciones p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #fff;
+}
+
+/* Animaciones del Banner */
+@keyframes slideDownBanner {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes pulseWarning {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+/* Responsive del Banner */
+@media (max-width: 768px) {
+    .banner-rechazo {
+        flex-direction: column;
+        top: 50px;
+    }
+    
+    .banner-rechazo-icon {
+        border-right: none;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        padding: 15px;
+        min-width: auto;
+    }
+    
+    .icono-advertencia-grande {
+        font-size: 36px;
+    }
+    
+    .banner-rechazo-header h3 {
+        font-size: 16px;
+    }
+    
+    .rechazo-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+    
+    .separador {
+        display: none;
+    }
+}
+
+/* ========================================
+   BOTONES DE VALIDACIÓN Y RECHAZO (ROLES 4 Y 5)
+   ======================================== */
+
+/* Estilos del Botón Validar */
+#btn-validar-semestre,
+button.btn-success,
+.btn-success {
+    background: linear-gradient(135deg, #28a745 0%, #218838 100%) !important;
+    color: white !important;
+    border: 1px solid #1e7e34 !important;
+    padding: 12px 30px !important;
+    border-radius: 8px !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin: 0 10px !important;
+    letter-spacing: 0.3px !important;
+}
+
+/* Hover del Botón Validar con efecto profesional */
+#btn-validar-semestre:hover,
+button.btn-success:hover,
+.btn-success:hover {
+    background: linear-gradient(135deg, #218838 0%, #1e7e34 100%) !important;
+    color: white !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 16px rgba(40, 167, 69, 0.45) !important;
+}
+
+/* Active del Botón Validar */
+#btn-validar-semestre:active,
+button.btn-success:active,
+.btn-success:active {
+    transform: translateY(0) !important;
+    box-shadow: 0 3px 6px rgba(40, 167, 69, 0.3) !important;
+}
+
+/* Estilos para Botón Validar Deshabilitado */
+#btn-validar-semestre:disabled,
+button.btn-success:disabled,
+.btn-success:disabled {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%) !important;
+    color: rgba(255, 255, 255, 0.6) !important;
+    border-color: #545b62 !important;
+    cursor: not-allowed !important;
+    opacity: 0.6 !important;
+    transform: none !important;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2) !important;
+}
+
+#btn-validar-semestre:disabled:hover,
+button.btn-success:disabled:hover,
+.btn-success:disabled:hover {
+    transform: none !important;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2) !important;
+}
+
+/* Estilos del Botón Rechazar por ID (Máxima Especificidad) */
+#btn-rechazar-semestre {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important;
+    color: white !important;
+    border: 1px solid #bd2130 !important;
+    padding: 12px 30px !important;
+    border-radius: 8px !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin: 0 10px !important;
+    letter-spacing: 0.3px !important;
+}
+
+/* Hover del Botón Rechazar con efecto profesional */
+#btn-rechazar-semestre:hover {
+    background: linear-gradient(135deg, #c82333 0%, #bd2130 100%) !important;
+    color: white !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 16px rgba(220, 53, 69, 0.45) !important;
+}
+
+/* Active del Botón Rechazar */
+#btn-rechazar-semestre:active {
+    transform: translateY(0) !important;
+    box-shadow: 0 3px 6px rgba(220, 53, 69, 0.3) !important;
+}
+
+/* Estilos para Botón Rechazar Deshabilitado */
+#btn-rechazar-semestre:disabled {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%) !important;
+    color: rgba(255, 255, 255, 0.6) !important;
+    border-color: #545b62 !important;
+    cursor: not-allowed !important;
+    opacity: 0.6 !important;
+    transform: none !important;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2) !important;
+    animation: none !important;
+}
+
+#btn-rechazar-semestre:disabled:hover {
+    transform: none !important;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2) !important;
+    animation: none !important;
+}
+
+/* Animación de pulso sutil en hover para botón Rechazar */
+#btn-rechazar-semestre:hover {
+    animation: pulse-danger-subtle 1.5s ease-in-out infinite !important;
+}
+
+@keyframes pulse-danger-subtle {
+    0%, 100% {
+        box-shadow: 0 6px 16px rgba(220, 53, 69, 0.45);
+    }
+    50% {
+        box-shadow: 0 6px 20px rgba(220, 53, 69, 0.6);
+    }
+}
+
+/* ========================================
+   MENSAJE DE VALIDACIÓN PREVIA
+   ======================================== */
+
+.mensaje-validacion-previa {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border: 1px solid #2196f3;
+    border-radius: 8px;
+    padding: 12px 20px;
+    margin-left: 20px;
+    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.2);
+    animation: slideInRight 0.5s ease-out;
+}
+
+.mensaje-validacion-previa .icono-info {
+    font-size: 24px;
+    animation: pulse 2s infinite;
+}
+
+.mensaje-validacion-previa .texto-info {
+    color: #1565c0;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.mensaje-validacion-previa .texto-info strong {
+    color: #0d47a1;
+    font-weight: 700;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .mensaje-validacion-previa {
+        margin-left: 0;
+        margin-top: 10px;
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ========================================
+   PANEL DE RECHAZO DESPLEGABLE
+   ======================================== */
+
+/* Panel de Rechazo Desplegable - Diseño Profesional */
+.panel-rechazo {
+    display: none;
+    background: linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%);
+    border: 1px solid #8b2332;
+    border-radius: 10px;
+    margin: 20px 0;
+    overflow: hidden;
+    box-shadow: 0 6px 20px rgba(139, 35, 50, 0.15), 0 0 0 1px rgba(139, 35, 50, 0.05);
+    max-height: 0;
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.panel-rechazo.panel-abierto {
+    display: block;
+    max-height: 700px;
+    opacity: 1;
+    animation: slideDownSmooth 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideDownSmooth {
+    from {
+        max-height: 0;
+        opacity: 0;
+        transform: translateY(-15px);
+    }
+    to {
+        max-height: 700px;
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Header del Panel */
+.panel-rechazo-header {
+    background: linear-gradient(135deg, #8b2332 0%, #a02f41 100%);
+    color: white;
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 3px solid #6d1b27;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.panel-rechazo-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: 0.3px;
+}
+
+.panel-rechazo-header h3::before {
+    content: "⚠";
+    font-size: 1.4rem;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* Botón Cerrar */
+.btn-cerrar-panel {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    font-size: 1.4rem;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    font-weight: 300;
+}
+
+.btn-cerrar-panel:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: rotate(90deg) scale(1.1);
+}
+
+/* Body del Panel */
+.panel-rechazo-body {
+    padding: 24px 28px;
+}
+
+/* Panel de Advertencia */
+.panel-warning {
+    background: linear-gradient(to right, #fff8e1 0%, #fffbf0 100%);
+    border-left: 5px solid #ffa726;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    border-radius: 6px;
+    color: #855300;
+    line-height: 1.6;
+    font-size: 0.95rem;
+    box-shadow: 0 2px 8px rgba(255, 167, 38, 0.1);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.panel-warning::before {
+    content: "⚠️";
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+
+/* Grupo de Formulario */
+.panel-rechazo .form-group {
+    margin-bottom: 18px;
+}
+
+.panel-rechazo .form-group label {
+    display: block;
+    margin-bottom: 10px;
+    color: #2c3e50;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+
+.panel-rechazo .texto-ayuda {
+    display: block;
+    font-size: 0.875rem;
+    color: #7f8c8d;
+    font-weight: 400;
+    margin-top: 6px;
+    font-style: italic;
+}
+
+/* Textarea del Motivo */
+.textarea-motivo-rechazo {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    resize: vertical;
+    min-height: 110px;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+    background: #ffffff;
+    line-height: 1.6;
+}
+
+.textarea-motivo-rechazo:focus {
+    outline: none;
+    border-color: #8b2332;
+    box-shadow: 0 0 0 4px rgba(139, 35, 50, 0.1), 0 2px 8px rgba(0, 0, 0, 0.05);
+    background: #fefefe;
+}
+
+.textarea-motivo-rechazo::placeholder {
+    color: #9ca3af;
+    font-style: italic;
+    opacity: 0.8;
+}
+
+/* Contador de Caracteres */
+.panel-rechazo .contador-caracteres {
+    text-align: right;
+    margin-top: 8px;
+    font-size: 0.875rem;
+    color: #6b7280;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+}
+
+/* Footer del Panel */
+.panel-footer {
+    padding: 18px 28px;
+    border-top: 2px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    background: linear-gradient(to bottom, #fafafa 0%, #f3f4f6 100%);
+}
+
+/* Botón Cancelar */
+.panel-footer .btn-cancelar {
+    background: linear-gradient(to bottom, #6b7280 0%, #4b5563 100%);
+    color: white;
+    border: 1px solid #4b5563;
+    padding: 11px 24px;
+    border-radius: 7px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 0.3px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.panel-footer .btn-cancelar:hover {
+    background: linear-gradient(to bottom, #4b5563 0%, #374151 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.panel-footer .btn-cancelar:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Botón Confirmar Rechazo */
+.panel-footer .btn-confirmar-rechazo {
+    background: linear-gradient(135deg, #8b2332 0%, #a02f41 100%);
+    color: white;
+    border: 1px solid #6d1b27;
+    padding: 11px 28px;
+    border-radius: 7px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 0.3px;
+    box-shadow: 0 3px 8px rgba(139, 35, 50, 0.25);
+}
+
+.panel-footer .btn-confirmar-rechazo:hover {
+    background: linear-gradient(135deg, #6d1b27 0%, #8b2332 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(139, 35, 50, 0.35);
+}
+
+.panel-footer .btn-confirmar-rechazo:active {
+    transform: translateY(0);
+    box-shadow: 0 3px 8px rgba(139, 35, 50, 0.25);
+}
+
+.panel-footer .btn-confirmar-rechazo:disabled {
+    background: linear-gradient(to bottom, #d1d5db 0%, #9ca3af 100%);
+    border-color: #9ca3af;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    opacity: 0.6;
+}

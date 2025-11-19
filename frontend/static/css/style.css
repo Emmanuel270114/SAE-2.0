@@ -47,7 +47,7 @@ button, .sae-btn {
     box-shadow: 0 2px 8px rgba(110,3,67,0.10);
     letter-spacing: 2px;
 }
-button:hover, .sae-btn:hover {
+button:hover:not(.btn-success):not(.btn-danger):not(.btn-info), .sae-btn:hover {
     background: var(--ipn-oro);
     color: var(--ipn-morado);
 }
@@ -209,93 +209,112 @@ button:disabled {
 }
 
 /* Estilos para botones de validación/rechazo (roles 4 y 5) */
+button.btn-success,
 .btn-success {
     background: #28a745 !important;
     color: white !important;
-    border: none;
-    padding: 12px 30px;
-    border-radius: 8px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 6px rgba(40, 167, 69, 0.3);
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 10px;
+    border: none !important;
+    padding: 12px 30px !important;
+    border-radius: 8px !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 6px rgba(40, 167, 69, 0.3) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin: 0 10px !important;
+    letter-spacing: normal !important;
 }
 
+button.btn-success:hover,
 .btn-success:hover {
     background: #218838 !important;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(40, 167, 69, 0.4);
-}
-
-.btn-success:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
-}
-
-.btn-danger {
-    background: #dc3545 !important;
     color: white !important;
-    border: none;
-    padding: 12px 30px;
-    border-radius: 8px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 6px rgba(220, 53, 69, 0.3);
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 10px;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 12px rgba(40, 167, 69, 0.4) !important;
 }
 
-.btn-danger:hover {
-    background: #c82333 !important;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(220, 53, 69, 0.4);
+button.btn-success:active,
+.btn-success:active {
+    transform: translateY(0) !important;
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3) !important;
 }
 
-.btn-danger:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+/* Estilos Específicos para el Botón Rechazar por ID (Máxima Especificidad) */
+#btn-rechazar-semestre {
+    /* Estilo de la Base (Rojo IPN) */
+    background: #dc3545 !important; 
+    color: white !important; 
+    border: none !important;
+    padding: 12px 30px !important; 
+    border-radius: 8px !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 6px rgba(220, 53, 69, 0.3) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin: 0 10px !important;
+    letter-spacing: normal !important;
 }
 
+/* Estilo al pasar el cursor (Hover) */
+#btn-rechazar-semestre:hover {
+    background: #c82333 !important; /* Rojo más oscuro */
+    color: white !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 12px rgba(220, 53, 69, 0.4) !important;
+    /* Si quieres que pulse, descomenta la línea de la animación aquí: */
+    /* animation: pulse-danger 1.5s infinite !important; */
+}
+
+/* Estilo al presionar (Active) */
+#btn-rechazar-semestre:active {
+    transform: translateY(0) !important;
+    box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3) !important;
+}
+
+button.btn-info,
 .btn-info {
     background: #17a2b8 !important;
     color: white !important;
-    border: none;
-    padding: 12px 30px;
-    border-radius: 8px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 6px rgba(23, 162, 184, 0.3);
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0 10px;
+    border: none !important;
+    padding: 12px 30px !important;
+    border-radius: 8px !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 6px rgba(23, 162, 184, 0.3) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin: 0 10px !important;
+    letter-spacing: normal !important;
 }
 
+button.btn-info:hover,
 .btn-info:hover {
     background: #138496 !important;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(23, 162, 184, 0.4);
+    color: white !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 12px rgba(23, 162, 184, 0.4) !important;
 }
 
+button.btn-info:active,
 .btn-info:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(23, 162, 184, 0.3);
+    transform: translateY(0) !important;
+    box-shadow: 0 2px 4px rgba(23, 162, 184, 0.3) !important;
 }
 
 /* Animación de pulso para el botón de rechazar al hacer hover (efecto de advertencia) */
+button.btn-danger:hover,
 .btn-danger:hover {
-    animation: pulse-danger 1.5s infinite;
+    animation: pulse-danger 1.5s infinite !important;
 }
 
 @keyframes pulse-danger {
@@ -308,5 +327,247 @@ button:disabled {
     100% {
         box-shadow: 0 6px 12px rgba(220, 53, 69, 0.4);
     }
+}
+
+/* Estilos para Panel de Rechazo Desplegable - Diseño Profesional */
+.panel-rechazo {
+    display: none;
+    background: linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%);
+    border: 1px solid #8b2332;
+    border-radius: 10px;
+    margin: 20px 0;
+    overflow: hidden;
+    box-shadow: 0 6px 20px rgba(139, 35, 50, 0.15), 0 0 0 1px rgba(139, 35, 50, 0.05);
+    max-height: 0;
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.panel-rechazo.panel-abierto {
+    display: block;
+    max-height: 700px;
+    opacity: 1;
+    animation: slideDownSmooth 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideDownSmooth {
+    from {
+        max-height: 0;
+        opacity: 0;
+        transform: translateY(-15px);
+    }
+    to {
+        max-height: 700px;
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.panel-rechazo-header {
+    background: linear-gradient(135deg, #8b2332 0%, #a02f41 100%);
+    color: white;
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 3px solid #6d1b27;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.panel-rechazo-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: 0.3px;
+}
+
+.panel-rechazo-header h3::before {
+    content: "⚠";
+    font-size: 1.4rem;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.btn-cerrar-panel {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    font-size: 1.4rem;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    font-weight: 300;
+}
+
+.btn-cerrar-panel:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: rotate(90deg) scale(1.1);
+}
+
+.panel-rechazo-body {
+    padding: 24px 28px;
+}
+
+.panel-warning {
+    background: linear-gradient(to right, #fff8e1 0%, #fffbf0 100%);
+    border-left: 5px solid #ffa726;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    border-radius: 6px;
+    color: #855300;
+    line-height: 1.6;
+    font-size: 0.95rem;
+    box-shadow: 0 2px 8px rgba(255, 167, 38, 0.1);
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.panel-warning::before {
+    content: "⚠️";
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+
+.form-group {
+    margin-bottom: 18px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 10px;
+    color: #2c3e50;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+
+.texto-ayuda {
+    display: block;
+    font-size: 0.875rem;
+    color: #7f8c8d;
+    font-weight: 400;
+    margin-top: 6px;
+    font-style: italic;
+}
+
+.textarea-motivo-rechazo {
+    width: 100%;
+    padding: 14px 16px;
+    border: 2px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    resize: vertical;
+    min-height: 110px;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+    background: #ffffff;
+    line-height: 1.6;
+}
+
+.textarea-motivo-rechazo:focus {
+    outline: none;
+    border-color: #8b2332;
+    box-shadow: 0 0 0 4px rgba(139, 35, 50, 0.1), 0 2px 8px rgba(0, 0, 0, 0.05);
+    background: #fefefe;
+}
+
+.textarea-motivo-rechazo::placeholder {
+    color: #9ca3af;
+    font-style: italic;
+    opacity: 0.8;
+}
+
+.contador-caracteres {
+    text-align: right;
+    margin-top: 8px;
+    font-size: 0.875rem;
+    color: #6b7280;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+}
+
+.panel-footer {
+    padding: 18px 28px;
+    border-top: 2px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    background: linear-gradient(to bottom, #fafafa 0%, #f3f4f6 100%);
+}
+
+.btn-cancelar {
+    background: linear-gradient(to bottom, #6b7280 0%, #4b5563 100%);
+    color: white;
+    border: 1px solid #4b5563;
+    padding: 11px 24px;
+    border-radius: 7px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 0.3px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-cancelar:hover {
+    background: linear-gradient(to bottom, #4b5563 0%, #374151 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.btn-cancelar:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-confirmar-rechazo {
+    background: linear-gradient(135deg, #8b2332 0%, #a02f41 100%);
+    color: white;
+    border: 1px solid #6d1b27;
+    padding: 11px 28px;
+    border-radius: 7px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 0.3px;
+    box-shadow: 0 3px 8px rgba(139, 35, 50, 0.25);
+}
+
+.btn-confirmar-rechazo:hover {
+    background: linear-gradient(135deg, #6d1b27 0%, #8b2332 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(139, 35, 50, 0.35);
+}
+
+.btn-confirmar-rechazo:active {
+    transform: translateY(0);
+    box-shadow: 0 3px 8px rgba(139, 35, 50, 0.25);
+}
+
+.btn-confirmar-rechazo:disabled {
+    background: linear-gradient(to bottom, #d1d5db 0%, #9ca3af 100%);
+    border-color: #9ca3af;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    opacity: 0.6;
 }
 
