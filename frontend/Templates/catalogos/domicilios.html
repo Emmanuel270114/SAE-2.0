@@ -64,10 +64,6 @@
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label for="localidad">Localidad</label>
-                    <input type="text" id="localidad" name="localidad" placeholder="Localidad" required readonly class="input-form">
-                </div>
-                <div class="form-group">
                     <label for="entidad">Entidad</label>
                     <input type="text" id="entidad" name="entidad" placeholder="Entidad" required readonly class="input-form">
                 </div>
@@ -75,7 +71,10 @@
                     <label for="municipio">Municipio</label>
                     <input type="text" id="municipio" name="municipio" placeholder="Municipio" required readonly class="input-form">
                 </div>
-                
+                <div class="form-group">
+                    <label for="localidad">Localidad</label>
+                    <input type="text" id="localidad" name="localidad" placeholder="Localidad" required readonly class="input-form">
+                </div>
                 
             </div>
             <input type="hidden" id="id_usuario" name="id_usuario">
@@ -114,9 +113,10 @@
                 <th>Calle</th>
                 <th>Colonia</th>
                 <th>C.P.</th>
-                <th>Localidad</th>
-                <th>Municipio</th>
                 <th>Entidad</th>
+                <th>Municipio</th>
+                <th>Localidad</th>
+                
             </tr>
         </thead>
         <tbody>
@@ -130,9 +130,10 @@
                 <td>{{ d.Calle }}</td>
                 <td>{{ d.Colonia }}</td>
                 <td>{{ d.CP }}</td>
-                <td>{{ d.Nombre_Localidad }}</td>
-                <td>{{ d.Nombre_Municipio }}</td>
                 <td>{{ d.Nombre_Entidad }}</td>
+                <td>{{ d.Nombre_Municipio }}</td>
+                <td>{{ d.Nombre_Localidad }}</td>
+                
             </tr>
             {% endfor %}
         </tbody>
@@ -195,9 +196,9 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById("calle").value = celdas[5].textContent.trim();
             document.getElementById("colonia").value = celdas[6].textContent.trim();
             document.getElementById("cp").value = celdas[7].textContent.trim();
-            document.getElementById("localidad").value = celdas[8].textContent.trim();
+            document.getElementById("entidad").value = celdas[8].textContent.trim();
             document.getElementById("municipio").value = celdas[9].textContent.trim();
-            document.getElementById("entidad").value = celdas[10].textContent.trim();
+            document.getElementById("localidad").value = celdas[10].textContent.trim();
 
             // Cambiar texto del botón y mostrar eliminar
             btnGuardar.textContent = "Actualizar";

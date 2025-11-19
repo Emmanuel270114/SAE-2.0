@@ -78,6 +78,7 @@ async def login(
             response.set_cookie(key="nombre_nivel", value=nombre_nivel, httponly=True)
             if id_usuario:
                 response.set_cookie(key="id_usuario", value=str(id_usuario), httponly=True)
+            response.set_cookie(key="usuario", value=user.Usuario or "", httponly=True)  # LOGIN del usuario
             response.set_cookie(key="id_unidad_academica", value=str(id_unidad), httponly=True)
             response.set_cookie(key="sigla_unidad_academica", value=sigla_unidad, httponly=True)
             response.set_cookie(key="nombre_usuario", value=user.Nombre or "", httponly=True)
