@@ -3,10 +3,10 @@
 {% block title %}Unidad Academica{% endblock %}
 
 {% block styles %}
-    <link rel="stylesheet" href="/static/css/components/header.css">
-    <link rel="stylesheet" href="/static/css/components/filters.css">
-    <link rel="stylesheet" href="/static/css/components/tables.css">
-    <link rel="stylesheet" href="/static/css/components/forms.css">
+<link rel="stylesheet" href="/static/css/components/header.css">
+<link rel="stylesheet" href="/static/css/components/filters.css">
+<link rel="stylesheet" href="/static/css/components/tables.css">
+<link rel="stylesheet" href="/static/css/components/forms.css">
 {% endblock %}
 
 {% block content %}
@@ -19,9 +19,9 @@
     </div>
 
 
-     <!-- Formulario de registro/edición de usuarios -->
+    <!-- Formulario de registro/edición de usuarios -->
     {% if rol == 'Administrador' %}
-        <div class="registro-container">
+    <div class="registro-container">
         <h3 id="titulo-usuario">Registro Unidad Academica</h3>
         <form id="registroUA">
             <div class="form-row">
@@ -39,43 +39,64 @@
                 </div>
             </div>
             <div class="form-row">
-                  <div class="form-group">
+                <div class="form-group">
                     <label for="director">Director</label>
-                    <input type="text" id="director" name="director" placeholder="Director/a"  class="input-form">
+                    <input type="text" id="director" name="director" placeholder="Director/a" class="input-form">
                 </div>
                 <div class="form-group">
                     <label for="rama">Rama</label>
-                    <input type="text" id="rama" name="rama" placeholder="Rama" required readonly class="input-form">
-                </div>  
+                    <select id="rama" class="input-form">
+                        <option value="">Selecciona una rama</option>
+                        {% for r in rama %}
+                        <option value="{{ r.Nombre_Rama }}">{{ r.Nombre_Rama }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
                     <label for="calle">Calle</label>
-                    <input type="text" id="calle" name="calle" placeholder="Calle"  class="input-form">
+                    <input type="text" id="calle" name="calle" placeholder="Calle" class="input-form">
                 </div>
                 <div class="form-group">
                     <label for="colonia">Colonia</label>
-                    <input type="text" id="colonia" name="colonia" placeholder="Colonia"  class="input-form">
+                    <input type="text" id="colonia" name="colonia" placeholder="Colonia" class="input-form">
                 </div>
                 <div class="form-group">
                     <label for="cp">C.P.</label>
-                    <input type="text" id="cp" name="cp" placeholder="Codigo Postal" required readonly class="input-form">
+                    <input type="text" id="cp" name="cp" placeholder="Codigo Postal" required readonly
+                        class="input-form">
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
                     <label for="entidad">Entidad</label>
-                    <input type="text" id="entidad" name="entidad" placeholder="Entidad" required readonly class="input-form">
+                    <select id="entidad" class="input-form">
+                        <option value="">Selecciona una entidad</option>
+                        {% for e in entidad | unique(attribute='Nombre_Entidad') %}
+                        <option value="{{ e.Nombre_Entidad }}">{{ e.Nombre_Entidad }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
+
                 <div class="form-group">
                     <label for="municipio">Municipio</label>
-                    <input type="text" id="municipio" name="municipio" placeholder="Municipio" required readonly class="input-form">
+                    <select id="municipio" class="input-form" disabled>
+                        <option value="">Selecciona un municipio</option>
+                    </select>
                 </div>
+
                 <div class="form-group">
                     <label for="localidad">Localidad</label>
-                    <input type="text" id="localidad" name="localidad" placeholder="Localidad" required readonly class="input-form">
+                    <select id="localidad" class="input-form" disabled>
+                        <option value="">Selecciona una localidad</option>
+                    </select>
                 </div>
-                
+
+
+
+
+
             </div>
             <input type="hidden" id="id_usuario" name="id_usuario">
             <div class="form-row">
@@ -101,79 +122,73 @@
         </select>
     </div>
 
-<div class="table-container">
-    <table id="tabla-domicilios">
-        <thead>
-            <tr>
-                <th>Sigla</th>
-                <th>Nombre</th>
-                <th>Clave</th>
-                <th>Director</th>
-                <th>Rama</th>
-                <th>Calle</th>
-                <th>Colonia</th>
-                <th>C.P.</th>
-                <th>Entidad</th>
-                <th>Municipio</th>
-                <th>Localidad</th>
-                
-            </tr>
-        </thead>
-        <tbody>
-            {% for d in domicilios %}
-            <tr class="fila-edit" >
-                <td>{{ d.Sigla }}</td>
-                <td>{{ d.Nombre }}</td>
-                <td>{{ d.Clave }}</td>
-                <td>{{ d.Director }}</td>
-                <td>{{ d.Nombre_Rama }}</td>
-                <td>{{ d.Calle }}</td>
-                <td>{{ d.Colonia }}</td>
-                <td>{{ d.CP }}</td>
-                <td>{{ d.Nombre_Entidad }}</td>
-                <td>{{ d.Nombre_Municipio }}</td>
-                <td>{{ d.Nombre_Localidad }}</td>
-                
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+    <div class="table-container">
+        <table id="tabla-domicilios">
+            <thead>
+                <tr>
+                    <th>Sigla</th>
+                    <th>Nombre</th>
+                    <th>Clave</th>
+                    <th>Director</th>
+                    <th>Rama</th>
+                    <th>Calle</th>
+                    <th>Colonia</th>
+                    <th>C.P.</th>
+                    <th>Entidad</th>
+                    <th>Municipio</th>
+                    <th>Localidad</th>
+
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in domicilios %}
+                <tr class="fila-edit">
+                    <td>{{ d.Sigla }}</td>
+                    <td>{{ d.Nombre }}</td>
+                    <td>{{ d.Clave }}</td>
+                    <td>{{ d.Director }}</td>
+                    <td>{{ d.Nombre_Rama }}</td>
+                    <td>{{ d.Calle }}</td>
+                    <td>{{ d.Colonia }}</td>
+                    <td>{{ d.CP }}</td>
+                    <td>{{ d.Nombre_Entidad }}</td>
+                    <td>{{ d.Nombre_Municipio }}</td>
+                    <td>{{ d.Nombre_Localidad }}</td>
+
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
 
 
 
 
-{% endblock %}
+    {% endblock %}
 
-{% block scripts %}
+    {% block scripts %}
 
-<!-- Script que sirve para el filtro por unidad academica -->
+    
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-    const selectFiltro = document.getElementById("filtro-ua");
-    const filas = document.querySelectorAll("#tabla-domicilios tbody tr");
+document.addEventListener("DOMContentLoaded", () => {
+    // --------------------
+    // Datos que vienen del backend (FastAPI → render_template)
+    // --------------------
+    const entidadesData = [
+        {% for e in entidad %}
+        {
+            Nombre_Entidad: "{{ e.Nombre_Entidad }}",
+            Nombre_Municipio: "{{ e.Nombre_Municipio }}",
+            Nombre_Localidad: "{{ e.Nombre_Localidad }}"
+        },
+        {% endfor %}
+    ];
 
-    selectFiltro.addEventListener("change", function() {
-        const valor = selectFiltro.value.toLowerCase().trim();
-
-        filas.forEach(fila => {
-            const unidad = fila.cells[0].textContent.toLowerCase().trim();
-
-            // 🔹 Si el valor está vacío, muestra todas las filas
-            // 🔹 Si no, muestra solo las que coinciden exactamente
-            if (valor === "" || unidad === valor) {
-                fila.style.display = "";
-            } else {
-                fila.style.display = "none";
-            }
-        });
-    });
-});
-</script>
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
+    // Referencias globales (dentro del DOMContentLoaded)
+    const entidadSelect = document.getElementById("entidad");
+    const municipioSelect = document.getElementById("municipio");
+    const localidadSelect = document.getElementById("localidad");
     const filas = document.querySelectorAll(".fila-edit");
     const form = document.getElementById("registroUA");
     const btnGuardar = document.getElementById("btn-guardar");
@@ -181,13 +196,98 @@ document.addEventListener("DOMContentLoaded", function () {
     const btnCancelar = document.getElementById("btn-cancelar");
     const btnLimpiar = document.getElementById("btn-limpiar");
     const titulo = document.getElementById("titulo-usuario");
+    const filtroUA = document.getElementById("filtro-ua");
 
-    // Cuando se selecciona una fila, llenar el formulario
+    // --------------------
+    // Helpers para poblar selects (sincrónicos — retornan Promise para usar await)
+    // --------------------
+    function populateMunicipios(entidad) {
+        return new Promise((resolve) => {
+            municipioSelect.innerHTML = '<option value="">Selecciona un municipio</option>';
+            localidadSelect.innerHTML = '<option value="">Selecciona una localidad</option>';
+            localidadSelect.disabled = true;
+
+            if (!entidad) {
+                municipioSelect.disabled = true;
+                return resolve();
+            }
+
+            const municipios = [
+                ...new Set(
+                    entidadesData
+                        .filter(e => e.Nombre_Entidad === entidad)
+                        .map(e => e.Nombre_Municipio)
+                        .filter(Boolean)
+                )
+            ];
+
+            municipios.forEach(m => {
+                const opt = document.createElement("option");
+                opt.value = m;
+                opt.textContent = m;
+                municipioSelect.appendChild(opt);
+            });
+
+            municipioSelect.disabled = municipios.length === 0;
+            resolve();
+        });
+    }
+
+    function populateLocalidades(entidad, municipio) {
+        return new Promise((resolve) => {
+            localidadSelect.innerHTML = '<option value="">Selecciona una localidad</option>';
+
+            if (!municipio) {
+                localidadSelect.disabled = true;
+                return resolve();
+            }
+
+            const localidades = entidadesData
+                .filter(e =>
+                    e.Nombre_Entidad === entidad &&
+                    e.Nombre_Municipio === municipio
+                )
+                .map(e => e.Nombre_Localidad)
+                .filter(Boolean);
+
+            // Eliminar duplicados
+            const uniqLocalidades = [...new Set(localidades)];
+
+            uniqLocalidades.forEach(l => {
+                const opt = document.createElement("option");
+                opt.value = l;
+                opt.textContent = l;
+                localidadSelect.appendChild(opt);
+            });
+
+            localidadSelect.disabled = uniqLocalidades.length === 0;
+            resolve();
+        });
+    }
+
+    // --------------------
+    // Eventos de cambio de selects (usuario interactúa)
+    // --------------------
+    entidadSelect.addEventListener("change", async () => {
+        const entidadSeleccionada = entidadSelect.value;
+        await populateMunicipios(entidadSeleccionada);
+        // Si queremos dejar municipio seleccionado vacío al cambiar entidad, lo dejamos así.
+    });
+
+    municipioSelect.addEventListener("change", async () => {
+        const entidadSeleccionada = entidadSelect.value;
+        const municipioSeleccionado = municipioSelect.value;
+        await populateLocalidades(entidadSeleccionada, municipioSeleccionado);
+    });
+
+    // --------------------
+    // Llenado del formulario cuando se hace click en una fila
+    // --------------------
     filas.forEach(fila => {
-        fila.addEventListener("click", () => {
+        fila.addEventListener("click", async () => {
             const celdas = fila.querySelectorAll("td");
 
-            // Asignar valores de la tabla al formulario
+            // Campos simples
             document.getElementById("sigla").value = celdas[0].textContent.trim();
             document.getElementById("nombreUA").value = celdas[1].textContent.trim();
             document.getElementById("claveUA").value = celdas[2].textContent.trim();
@@ -196,28 +296,80 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById("calle").value = celdas[5].textContent.trim();
             document.getElementById("colonia").value = celdas[6].textContent.trim();
             document.getElementById("cp").value = celdas[7].textContent.trim();
-            document.getElementById("entidad").value = celdas[8].textContent.trim();
-            document.getElementById("municipio").value = celdas[9].textContent.trim();
-            document.getElementById("localidad").value = celdas[10].textContent.trim();
 
-            // Cambiar texto del botón y mostrar eliminar
+            // ENTIDAD -> poblar municipios y seleccionar
+            const entidadVal = celdas[8].textContent.trim();
+            entidadSelect.value = entidadVal || "";
+            await populateMunicipios(entidadVal);
+
+            // MUNICIPIO -> poblar localidades y seleccionar
+            const municipioVal = celdas[9].textContent.trim();
+            // Selecciona el option si existe; si no existe, lo agrega (esto evita fallos por discrepancias)
+            if (municipioVal) {
+                let opt = Array.from(municipioSelect.options).find(o => o.value === municipioVal);
+                if (!opt) {
+                    opt = document.createElement("option");
+                    opt.value = municipioVal;
+                    opt.textContent = municipioVal;
+                    municipioSelect.appendChild(opt);
+                }
+                municipioSelect.value = municipioVal;
+                await populateLocalidades(entidadVal, municipioVal);
+            } else {
+                municipioSelect.value = "";
+            }
+
+            // LOCALIDAD -> seleccionar (añade si no existe)
+            const localidadVal = celdas[10].textContent.trim();
+            if (localidadVal) {
+                let optL = Array.from(localidadSelect.options).find(o => o.value === localidadVal);
+                if (!optL) {
+                    optL = document.createElement("option");
+                    optL.value = localidadVal;
+                    optL.textContent = localidadVal;
+                    localidadSelect.appendChild(optL);
+                }
+                localidadSelect.value = localidadVal;
+            } else {
+                localidadSelect.value = "";
+            }
+
+            // Ajustar botones/título
             btnGuardar.textContent = "Actualizar";
             btnEliminar.style.display = "inline-block";
-
-            // Cambiar título
             titulo.textContent = "Editar Unidad Académica";
         });
     });
 
-    // Botón limpiar: borra campos sin salir del modo actual
+    // --------------------
+    // Filtro por Unidad Académica
+    // --------------------
+    if (filtroUA) {
+        filtroUA.addEventListener("change", function () {
+            const valor = filtroUA.value.toLowerCase().trim();
+            const filasTabla = document.querySelectorAll("#tabla-domicilios tbody tr");
+
+            filasTabla.forEach(fila => {
+                const unidad = fila.cells[0].textContent.toLowerCase().trim();
+                if (valor === "" || unidad === valor) {
+                    fila.style.display = "";
+                } else {
+                    fila.style.display = "none";
+                }
+            });
+        });
+    }
+
+    // --------------------
+    // Botones limpiar / cancelar / eliminar
+    // --------------------
     btnLimpiar.addEventListener("click", function () {
         form.reset();
-        titulo.textContent = "Registro Unidad Académica"
+        titulo.textContent = "Registro Unidad Académica";
         btnGuardar.textContent = "Registrar";
         btnEliminar.style.display = "none";
     });
 
-    // Botón cancelar: limpia formulario y regresa al modo "Registrar"
     btnCancelar.addEventListener("click", function () {
         form.reset();
         btnGuardar.textContent = "Registrar";
@@ -225,11 +377,9 @@ document.addEventListener("DOMContentLoaded", function () {
         titulo.textContent = "Registro Unidad Académica";
     });
 
-    // (Opcional) Botón eliminar: aquí puedes añadir la lógica de eliminación
     btnEliminar.addEventListener("click", function () {
         const sigla = document.getElementById("sigla").value;
         if (confirm(`¿Seguro que deseas eliminar la unidad académica "${sigla}"?`)) {
-            // Aquí iría tu lógica de eliminación (por ejemplo, una petición fetch a tu backend)
             console.log("Eliminando unidad:", sigla);
             form.reset();
             btnGuardar.textContent = "Registrar";
@@ -237,10 +387,117 @@ document.addEventListener("DOMContentLoaded", function () {
             titulo.textContent = "Registro Unidad Académica";
         }
     });
+
 });
+
+// =========================
+// FUNCIONES DE CRUD (FASTAPI)
+// =========================
+
+// Obtener datos del formulario
+function getFormData() {
+    return {
+        sigla: document.getElementById("sigla").value.trim(),
+        nombre: document.getElementById("nombreUA").value.trim(),
+        clave: document.getElementById("claveUA").value.trim(),
+        director: document.getElementById("director").value.trim(),
+        rama: document.getElementById("rama").value.trim(),
+        calle: document.getElementById("calle").value.trim(),
+        colonia: document.getElementById("colonia").value.trim(),
+        cp: document.getElementById("cp").value.trim(),
+        entidad: document.getElementById("entidad").value,
+        municipio: document.getElementById("municipio").value,
+        localidad: document.getElementById("localidad").value,
+    };
+}
+
+// Validar datos mínimos
+function validar(data) {
+    if (!data.sigla || !data.nombre || !data.clave) {
+        alert("Debe llenar al menos: Sigla, Nombre y Clave.");
+        return false;
+    }
+    return true;
+}
+
+// -------------------------
+// REGISTRAR UA
+// -------------------------
+btnGuardar.addEventListener("click", async function (e) {
+    e.preventDefault();
+
+    const data = getFormData();
+    if (!validar(data)) return;
+
+    if (btnGuardar.textContent === "Registrar") {
+        // --- Crear UA ---
+        const respuesta = await fetch("/registrarUA", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+        });
+
+        const res = await respuesta.json();
+        alert(res.msg || "Registrado correctamente");
+
+        form.reset();
+        btnEliminar.style.display = "none";
+        titulo.textContent = "Registro Unidad Académica";
+        btnGuardar.textContent = "Registrar";
+
+        location.reload(); // Recargar tabla
+    } else {
+        // --- Actualizar UA ---
+        const respuesta = await fetch(`/actualizarUA/${data.sigla}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+        });
+
+        const res = await respuesta.json();
+        alert(res.msg || "Actualizado correctamente");
+
+        form.reset();
+        btnEliminar.style.display = "none";
+        titulo.textContent = "Registro Unidad Académica";
+        btnGuardar.textContent = "Registrar";
+
+        location.reload();
+    }
+});
+
+// -------------------------
+// ELIMINAR UA
+// -------------------------
+btnEliminar.addEventListener("click", async function () {
+    const sigla = document.getElementById("sigla").value;
+
+    if (!sigla) {
+        alert("No hay una unidad seleccionada");
+        return;
+    }
+
+    if (!confirm(`¿Seguro que deseas eliminar la unidad "${sigla}"?`)) {
+        return;
+    }
+
+    const respuesta = await fetch(`/eliminarUA/${sigla}`, {
+        method: "DELETE",
+    });
+
+    const res = await respuesta.json();
+    alert(res.msg || "Eliminado correctamente");
+
+    form.reset();
+    btnGuardar.textContent = "Registrar";
+    btnEliminar.style.display = "none";
+    titulo.textContent = "Registro Unidad Académica";
+
+    location.reload();
+});
+
 </script>
 
 
 
-
-{% endblock %}
+    {% endblock %} 
