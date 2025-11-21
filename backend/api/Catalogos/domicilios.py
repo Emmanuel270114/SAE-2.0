@@ -83,12 +83,13 @@ def consultaEntidad(db: Session):
     except Exception as e:
         return {"error": str(e)}
     
-    @router.post("/registrarUA")
-def registrar_ua(data: UARequest, db: Session = Depends(get_db)):
+
+@router.post("/registrarUA")
+def registrar_ua(db: Session = Depends(get_db)):
     print("Registrar")
 
 @router.put("/actualizarUA/{sigla}")
-def actualizar_ua(sigla: str, data: UARequest, db: Session = Depends(get_db)):
+def actualizar_ua(sigla: str, db: Session = Depends(get_db)):
     print("actualizar")
 
 @router.delete("/eliminarUA/{sigla}")
