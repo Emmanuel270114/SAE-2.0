@@ -98,7 +98,16 @@
 
                 <div class="form-group">
                     <label for="cp">C.P.</label>
-                    <input type="text" id="cp" required readonly class="input-form">
+                    <input 
+                        type="text"     
+                        id="cp" 
+                        name="cp" 
+                        pattern="^\d{5}$" 
+                        maxlength="5"
+                        required
+                        title="Debe ser un número de exactamente 5 dígitos"
+                        class="input-form"
+                    />
                 </div>
             </div>
 

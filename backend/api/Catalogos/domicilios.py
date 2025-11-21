@@ -85,13 +85,45 @@ def consultaEntidad(db: Session):
     
 
 @router.post("/registrarUA")
-def registrar_ua(db: Session = Depends(get_db)):
-    print("Registrar")
+def registrar_ua(data: dict, db: Session = Depends(get_db)):
+    print("Datos recibidos en REGISTRAR:")
+    print(data)  # <-- imprime todo el JSON recibido
+
+    sigla = data.get("sigla")
+    entidad = data.get("entidad")
+    municipio = data.get("municipio")
+    localidad = data.get("localidad")
+
+    print("Sigla:", sigla)
+    print("Entidad:", entidad)
+    print("Municipio:", municipio)
+    print("Localidad:", localidad)
+
+    return {"status": "ok", "msg": "UA registrada correctamente"}
+
 
 @router.put("/actualizarUA/{sigla}")
-def actualizar_ua(sigla: str, db: Session = Depends(get_db)):
-    print("Actualizar")
+def actualizar_ua(sigla: str, data: dict, db: Session = Depends(get_db)):
+
+    print("\nDatos recibidos en ACTUALIZAR:")
+    print("Sigla en ruta:", sigla)
+    print("Body recibido:", data)
+
+    entidad = data.get("entidad")
+    municipio = data.get("municipio")
+    localidad = data.get("localidad")
+
+    print("Entidad:", entidad)
+    print("Municipio:", municipio)
+    print("Localidad:", localidad)
+
+    return {"status": "ok", "msg": "UA actualizada correctamente"}
+
+
 
 @router.delete("/eliminarUA/{sigla}")
 def eliminar_ua(sigla: str, db: Session = Depends(get_db)):
-    print("Eliminar")
+    print("\nDatos recibidos en ELIMINAR:")
+    print("Sigla:", sigla)
+
+    return {"status": "ok", "msg": "UA eliminada correctamente"}
