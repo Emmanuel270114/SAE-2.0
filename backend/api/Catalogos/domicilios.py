@@ -38,9 +38,9 @@ def domicilios_view(
 
         # Convertir el resultado a lista de diccionarios
         data = [dict(row) for row in resultado.mappings().all()]
-        #print(data)
+        print(data)
         Rama = consultaRama(db)
-        print(Rama)
+        #print(Rama)
         Entidad = consultaEntidad(db)
         #print(Entidad)
 
@@ -90,7 +90,7 @@ def registrar_ua(db: Session = Depends(get_db)):
 
 @router.put("/actualizarUA/{sigla}")
 def actualizar_ua(sigla: str, db: Session = Depends(get_db)):
-    print("actualizar")
+    print("Actualizar")
 
 @router.delete("/eliminarUA/{sigla}")
 def eliminar_ua(sigla: str, db: Session = Depends(get_db)):
