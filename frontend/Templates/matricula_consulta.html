@@ -78,6 +78,43 @@
 
     <h2>Captura de Matrícula Escolar</h2>
 
+    <!-- Icono de Notificaciones en Header (solo para capturista con rechazo) -->
+    {% if rechazo_info %}
+    <div class="notificaciones-container">
+        <button class="btn-notificaciones" onclick="togglePanelNotificaciones()" title="Ver notificaciones">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <span class="notificacion-badge">1</span>
+        </button>
+
+        <!-- Panel de Notificaciones Desplegable -->
+        <div id="panel-notificaciones" class="panel-notificaciones" style="display: none;">
+            <div class="panel-notificaciones-header">
+                <h4>🔔 Notificaciones</h4>
+                <button class="btn-cerrar-panel" onclick="togglePanelNotificaciones()" title="Cerrar">
+                    ✕
+                </button>
+            </div>
+            <div class="panel-notificaciones-body">
+                <div class="notificacion-item notificacion-rechazo">
+                    <div class="notificacion-icon">⚠️</div>
+                    <div class="notificacion-contenido">
+                        <h5>Matrícula Rechazada</h5>
+                        <p class="notificacion-fecha">{{ rechazo_info.fecha }}</p>
+                        <p class="notificacion-motivo">{{ rechazo_info.motivo }}</p>
+                        <p class="notificacion-autor">Por: {{ rechazo_info.rechazado_por }}</p>
+                        <button class="btn-mostrar-banner" onclick="mostrarBannerRechazo()">
+                            📋 Ver Detalles Completos
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Banner de Rechazo (solo visible para capturista cuando hay rechazo) -->
     {% if rechazo_info %}
     <div id="banner-rechazo" class="banner-rechazo">
@@ -104,7 +141,7 @@
                     <span><strong>Periodo:</strong> {{ rechazo_info.periodo }}</span>
                 </div>
                 <div class="rechazo-instrucciones">
-                    <p>📝 Por favor, revise y corrija los datos indicados. Una vez realizadas las correcciones, valide nuevamente todos los turnos del semestre.</p>
+                    <p>📝 Por favor, revise y corrija los datos indicados. Una vez realizadas las correcciones, valide nuevamente todos los turnos de los semestres.</p>
                 </div>
             </div>
         </div>
@@ -297,8 +334,8 @@
             
             <!-- Mensaje informativo cuando ya se validó/rechazó -->
             {% if usuario_ya_valido or usuario_ya_rechazo %}
-            <div class="mensaje-validacion-previa">
-                <span class="icono-info">ℹ️</span>
+            <div class="mensaje-validacion-previa {% if usuario_ya_valido %}validada{% else %}rechazada{% endif %}">
+                <span class="icono-info">{% if usuario_ya_valido %}✅{% else %}❌{% endif %}</span>
                 <span class="texto-info">
                     {% if usuario_ya_valido %}
                     Ya has <strong>validado</strong> esta matrícula.
@@ -1721,6 +1758,8 @@
         // Actualizar Total Grupos para el nuevo contexto turno-semestre
         setTimeout(() => {
             aplicarTotalGruposParaSemestreYTurnoActual();
+            // Asegurar que roles de validación no puedan editar
+            aplicarModoVista();
         }, 100);
     }
 
@@ -1911,6 +1950,39 @@
         // Actualizar campo oculto (usar el ID del semestre correspondiente)
         document.getElementById('semestre').value = semestreNum;
         
+        // REINICIAR AL PRIMER TURNO SIEMPRE que se cambie de semestre
+        console.log('🔄 Cambio de semestre detectado - Reiniciando al primer turno disponible...');
+        if (turnosDisponibles && turnosDisponibles.length > 0) {
+            turnoActualIndex = 0;
+            const primerTurno = turnosDisponibles[0];
+            
+            // Actualizar UI del indicador de turno
+            document.getElementById('turno-nombre').textContent = primerTurno.Turno;
+            document.getElementById('turno').value = primerTurno.Id_Turno;
+            
+            // Actualizar estado de botones de navegación
+            document.getElementById('btn-turno-anterior').disabled = true; // Siempre deshabilitado en el primer turno
+            document.getElementById('btn-turno-siguiente').disabled = turnosDisponibles.length === 1;
+            
+            console.log(`✅ Reiniciado al primer turno: ${primerTurno.Turno} (ID: ${primerTurno.Id_Turno})`);
+        }
+        
+        // DESPLAZAR A LA TABLA DE MATRÍCULA (dejando visibles las pestañas de semestres)
+        setTimeout(() => {
+            const tablaContainer = document.querySelector('.tabla-matricula-container');
+            if (tablaContainer) {
+                const rect = tablaContainer.getBoundingClientRect();
+                const offset = 150; // Espacio para mantener las pestañas visibles
+                const scrollPosition = window.pageYOffset + rect.top - offset;
+                
+                window.scrollTo({
+                    top: scrollPosition,
+                    behavior: 'smooth'
+                });
+                console.log('📍 Desplazamiento a la tabla de matrícula (con offset para pestañas)');
+            }
+        }, 200);
+        
         // Recargar datos
         cargarDatosExistentes();
         // Aplicar Total Grupos correspondiente después de que lleguen los datos
@@ -1918,6 +1990,8 @@
             aplicarTotalGruposParaSemestreYTurnoActual();
             // Aplicar bloqueo de botones según el estado del semestre seleccionado
             aplicarBloqueoPorSemaforo();
+            // Asegurar que roles de validación no puedan editar
+            aplicarModoVista();
         }, 150);
     }
 
@@ -1970,15 +2044,25 @@
                     container.setAttribute('data-tooltip', tooltipMessage);
                 }
             } else {
-                input.disabled = false;
-                input.classList.remove('input-disabled');
-                input.title = '';
-                
-                // Remover indicador visual del contenedor padre
-                const container = input.closest('.matricula-box');
-                if (container) {
-                    container.classList.remove('input-container-disabled');
-                    container.removeAttribute('data-tooltip');
+                // Solo habilitar inputs si el usuario ES CAPTURISTA
+                // Los roles de validación (4-8) NUNCA deben poder editar
+                if (esCapturista) {
+                    input.disabled = false;
+                    input.classList.remove('input-disabled');
+                    input.title = '';
+                    
+                    // Remover indicador visual del contenedor padre
+                    const container = input.closest('.matricula-box');
+                    if (container) {
+                        container.classList.remove('input-container-disabled');
+                        container.removeAttribute('data-tooltip');
+                    }
+                } else {
+                    // Roles de validación: mantener deshabilitado siempre
+                    input.disabled = true;
+                    input.classList.add('input-disabled');
+                    input.style.backgroundColor = '#f0f0f0';
+                    input.style.cursor = 'not-allowed';
                 }
             }
         });
@@ -2371,6 +2455,11 @@
                     
                     // Cargar nuevos datos
                     cargarDatosExistentes();
+                    
+                    // Asegurar que roles de validación no puedan editar después de cargar
+                    setTimeout(() => {
+                        aplicarModoVista();
+                    }, 200);
                 });
             }
         });
@@ -2620,6 +2709,38 @@
                     `¡Proceso completado!`);
                 
                 console.log('✅ SP final completado exitosamente');
+                
+                // AUTO-AVANCE: Pasar al siguiente semestre automáticamente
+                console.log('🔄 Auto-avance: Verificando si hay más semestres disponibles...');
+                const semestreActualIdx = semestresDisponiblesSP.indexOf(semestreActual);
+                console.log(`📍 Índice del semestre actual: ${semestreActualIdx}, Total semestres: ${semestresDisponiblesSP.length}`);
+                
+                if (semestreActualIdx !== -1 && semestreActualIdx < semestresDisponiblesSP.length - 1) {
+                    const siguienteSemestre = semestresDisponiblesSP[semestreActualIdx + 1];
+                    const siguienteSemestreNombre = semestresMap[siguienteSemestre] || `Semestre ${siguienteSemestre}`;
+                    console.log(`✨ Avanzando al ${siguienteSemestreNombre}...`);
+                    
+                    setTimeout(() => {
+                        seleccionarSemestre(siguienteSemestre);
+                        console.log(`✅ Auto-avance completado al ${siguienteSemestreNombre}`);
+                        
+                        // Reiniciar al primer turno del nuevo semestre
+                        setTimeout(() => {
+                            if (turnosDisponibles && turnosDisponibles.length > 0) {
+                                turnoActualIndex = 0;
+                                cambiarTurno(0); // Seleccionar primer turno
+                                console.log('🔄 Reiniciado al primer turno del nuevo semestre');
+                            }
+                        }, 500);
+                    }, 1000); // Delay más largo para que el usuario vea el mensaje de éxito del semestre
+                } else if (semestreActualIdx === semestresDisponiblesSP.length - 1) {
+                    console.log('🏁 Ya completaste el último semestre disponible');
+                    setTimeout(() => {
+                        alert('🏁 ¡FELICIDADES! Has completado TODOS los semestres disponibles.\n\n✅ Proceso de captura finalizado completamente.');
+                    }, 2500);
+                } else {
+                    console.log('⚠️ No se pudo determinar el siguiente semestre');
+                }
                 
             } else {
                 console.warn('⚠️ Respuesta inesperada del SP final');
@@ -2930,6 +3051,18 @@
                     `�📋 Turnos pendientes: ${turnosFaltantes}\n\n` +
                     `⚠️ Cuando valides todos los turnos, se ejecutará automáticamente\n` +
                     `el SP_Actualiza_Matricula_Por_Semestre_AU para consolidar el semestre.`);
+                
+                // AUTO-AVANCE: Pasar al siguiente turno automáticamente
+                console.log('🔄 Auto-avance: Verificando si hay más turnos disponibles...');
+                if (turnoActualIndex < turnosDisponibles.length - 1) {
+                    console.log(`✨ Avanzando al siguiente turno (índice actual: ${turnoActualIndex})`);
+                    setTimeout(() => {
+                        cambiarTurno(1); // Avanzar al siguiente turno
+                        console.log('✅ Auto-avance completado al siguiente turno');
+                    }, 1000); // Delay para que el usuario vea el mensaje de éxito
+                } else {
+                    console.log('⏹️ Ya estás en el último turno disponible, no se puede avanzar');
+                }
             }
             
         } catch (error) {
@@ -2972,6 +3105,8 @@
                 input.classList.add('input-disabled');
                 input.style.backgroundColor = '#f0f0f0';
                 input.style.cursor = 'not-allowed';
+                // Eliminar cualquier evento que pudiera habilitar el input
+                input.readOnly = true;
             });
             
             // Deshabilitar input de Total Grupos
@@ -2981,16 +3116,33 @@
                 totalGruposInput.classList.add('input-disabled');
                 totalGruposInput.style.backgroundColor = '#f0f0f0';
                 totalGruposInput.style.cursor = 'not-allowed';
+                totalGruposInput.readOnly = true;
+            }
+            
+            // Deshabilitar botones de acción del capturista si existen
+            const btnGuardar = document.getElementById('btn-guardar-matricula');
+            const btnLimpiar = document.getElementById('btn-limpiar-formulario');
+            const btnValidarCaptura = document.getElementById('btn-validar-matricula');
+            
+            if (btnGuardar) {
+                btnGuardar.style.display = 'none';
+            }
+            if (btnLimpiar) {
+                btnLimpiar.style.display = 'none';
+            }
+            if (btnValidarCaptura) {
+                btnValidarCaptura.style.display = 'none';
             }
             
             // ⚠️ IMPORTANTE: Los filtros (programa, modalidad y turnos) PERMANECEN HABILITADOS
-            // para que roles 4 y 5 puedan filtrar diferentes programas/modalidades/turnos
+            // para que roles 4, 5, 6, 7, 8 puedan filtrar diferentes programas/modalidades/turnos
             console.log('✅ Filtros de programa, modalidad y turnos habilitados para validación');
             
             // Los botones de navegación de turno PERMANECEN habilitados para roles de validación
             // para que puedan revisar diferentes turnos
             
             console.log('✅ Vista configurada en modo solo lectura (filtros y turnos activos)');
+            console.log('🔒 TODOS los inputs están permanentemente deshabilitados para roles de validación');
         }
     }
     
@@ -3011,7 +3163,7 @@
         const semestreNombre = semestresMap[parseInt(semestre)] || `Semestre ${semestre}`;
         
         const confirmar = confirm(
-            `¿Está seguro que desea VALIDAR el ${semestreNombre}?\n\n` +
+            `¿Está seguro que desea VALIDAR?\n\n` +
             `Esta acción marcará el semestre como aprobado y bloqueará cualquier modificación futura.\n\n` +
             `¿Continuar?`
         );
@@ -3425,9 +3577,13 @@
     }
 
     /* ========================================
-       FUNCIONES DEL BANNER DE RECHAZO
+       FUNCIONES DEL BANNER DE RECHAZO Y NOTIFICACIONES
        ======================================== */
     
+    /**
+     * Cerrar el banner de rechazo (ocultarlo temporalmente)
+     * El banner se puede volver a ver desde la campanita de notificaciones
+     */
     function cerrarBannerRechazo() {
         const banner = document.getElementById('banner-rechazo');
         if (banner) {
@@ -3437,6 +3593,57 @@
             }, 300);
         }
     }
+    
+    /**
+     * Mostrar el banner de rechazo (desde la campanita de notificaciones)
+     */
+    function mostrarBannerRechazo() {
+        const banner = document.getElementById('banner-rechazo');
+        if (banner) {
+            banner.style.display = 'flex';
+            banner.style.animation = 'slideDownBanner 0.5s ease-out';
+            
+            // Cerrar el panel de notificaciones
+            const panel = document.getElementById('panel-notificaciones');
+            if (panel) {
+                panel.style.display = 'none';
+            }
+            
+            // Hacer scroll suave hasta el banner
+            setTimeout(() => {
+                banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+        }
+    }
+    
+    /**
+     * Toggle (abrir/cerrar) el panel de notificaciones
+     */
+    function togglePanelNotificaciones() {
+        const panel = document.getElementById('panel-notificaciones');
+        if (panel) {
+            if (panel.style.display === 'none' || panel.style.display === '') {
+                // Abrir panel
+                panel.style.display = 'block';
+            } else {
+                // Cerrar panel
+                panel.style.display = 'none';
+            }
+        }
+    }
+    
+    // Cerrar panel de notificaciones al hacer clic fuera
+    document.addEventListener('click', function(event) {
+        const panel = document.getElementById('panel-notificaciones');
+        const btnNotificaciones = document.querySelector('.btn-notificaciones');
+        
+        // Si el panel está abierto y el clic NO fue en el panel ni en el botón
+        if (panel && panel.style.display === 'block') {
+            if (!panel.contains(event.target) && !btnNotificaciones.contains(event.target)) {
+                panel.style.display = 'none';
+            }
+        }
+    });
     
 </script>
 

@@ -1,7 +1,247 @@
 /* ========================================
-   ESTILOS PARA PANEL DE RECHAZO
+   ESTILOS PARA PANEL DE RECHAZO Y NOTIFICACIONES
    Sistema de Matrícula - SAE
    ======================================== */
+
+/* ========================================
+   ICONO DE NOTIFICACIONES (CAMPANITA)
+   ======================================== */
+
+.notificaciones-container {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 1001;
+}
+
+.btn-notificaciones {
+    position: relative;
+    background: linear-gradient(135deg, #8b2332 0%, #a02f41 100%);
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow: 0 4px 12px rgba(139, 35, 50, 0.4);
+    transition: all 0.3s ease;
+    animation: pulseNotification 2s infinite;
+}
+
+.btn-notificaciones:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(139, 35, 50, 0.6);
+}
+
+.btn-notificaciones svg {
+    width: 24px;
+    height: 24px;
+}
+
+.notificacion-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: #ffc107;
+    color: #000;
+    font-size: 11px;
+    font-weight: bold;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+    animation: bounceIn 0.6s ease-out;
+}
+
+@keyframes pulseNotification {
+    0%, 100% {
+        box-shadow: 0 4px 12px rgba(139, 35, 50, 0.4);
+    }
+    50% {
+        box-shadow: 0 4px 20px rgba(139, 35, 50, 0.7),
+                    0 0 0 8px rgba(139, 35, 50, 0.1);
+    }
+}
+
+@keyframes bounceIn {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* ========================================
+   PANEL DE NOTIFICACIONES DESPLEGABLE
+   ======================================== */
+
+.panel-notificaciones {
+    position: fixed;
+    bottom: 100px;
+    right: 30px;
+    width: 400px;
+    max-width: calc(100vw - 40px);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    animation: slideInRight 0.3s ease-out;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+}
+
+.panel-notificaciones-header {
+    background: linear-gradient(135deg, #8b2332 0%, #a02f41 100%);
+    color: white;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #6a1a27;
+}
+
+.panel-notificaciones-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.btn-cerrar-panel {
+    background: rgba(255, 255, 255, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.btn-cerrar-panel:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: rotate(90deg);
+}
+
+.panel-notificaciones-body {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.notificacion-item {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+    background: #f9fafb;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    border-left: 4px solid #ffc107;
+    transition: all 0.2s ease;
+}
+
+.notificacion-item:hover {
+    background: #f3f4f6;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.notificacion-item:last-child {
+    margin-bottom: 0;
+}
+
+.notificacion-rechazo {
+    border-left-color: #8b2332;
+}
+
+.notificacion-icon {
+    font-size: 32px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.notificacion-contenido {
+    flex: 1;
+}
+
+.notificacion-contenido h5 {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.notificacion-fecha {
+    font-size: 11px;
+    color: #6b7280;
+    margin: 0 0 8px 0;
+}
+
+.notificacion-motivo {
+    font-size: 13px;
+    color: #374151;
+    margin: 0 0 8px 0;
+    line-height: 1.5;
+    max-height: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+.notificacion-autor {
+    font-size: 12px;
+    color: #6b7280;
+    margin: 0 0 12px 0;
+    font-style: italic;
+}
+
+.btn-mostrar-banner {
+    background: linear-gradient(135deg, #8b2332 0%, #a02f41 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.btn-mostrar-banner:hover {
+    background: linear-gradient(135deg, #6a1a27 0%, #8b2332 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(139, 35, 50, 0.3);
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
 
 /* ========================================
    BANNER DE RECHAZO SUPERIOR (CAPTURISTA)
@@ -334,33 +574,65 @@ button.btn-success:disabled:hover,
    MENSAJE DE VALIDACIÓN PREVIA
    ======================================== */
 
+/* Base del mensaje */
 .mensaje-validacion-previa {
     display: inline-flex;
     align-items: center;
     gap: 12px;
-    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-    border: 1px solid #2196f3;
     border-radius: 8px;
     padding: 12px 20px;
     margin-left: 20px;
-    box-shadow: 0 2px 8px rgba(33, 150, 243, 0.2);
     animation: slideInRight 0.5s ease-out;
+    transition: all 0.3s ease;
 }
 
-.mensaje-validacion-previa .icono-info {
+/* Estado: VALIDADA (Verde) */
+.mensaje-validacion-previa.validada {
+    background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+    border: 2px solid #4caf50;
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+}
+
+.mensaje-validacion-previa.validada .icono-info {
     font-size: 24px;
     animation: pulse 2s infinite;
+    color: #2e7d32;
 }
 
-.mensaje-validacion-previa .texto-info {
-    color: #1565c0;
+.mensaje-validacion-previa.validada .texto-info {
+    color: #2e7d32;
     font-size: 14px;
     font-weight: 500;
     line-height: 1.4;
 }
 
-.mensaje-validacion-previa .texto-info strong {
-    color: #0d47a1;
+.mensaje-validacion-previa.validada .texto-info strong {
+    color: #1b5e20;
+    font-weight: 700;
+}
+
+/* Estado: RECHAZADA (Rojo) */
+.mensaje-validacion-previa.rechazada {
+    background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+    border: 2px solid #f44336;
+    box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3);
+}
+
+.mensaje-validacion-previa.rechazada .icono-info {
+    font-size: 24px;
+    animation: pulse 2s infinite;
+    color: #c62828;
+}
+
+.mensaje-validacion-previa.rechazada .texto-info {
+    color: #c62828;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.mensaje-validacion-previa.rechazada .texto-info strong {
+    color: #b71c1c;
     font-weight: 700;
 }
 
