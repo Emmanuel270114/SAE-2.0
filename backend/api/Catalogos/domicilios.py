@@ -38,7 +38,7 @@ def domicilios_view(
 
         # Convertir el resultado a lista de diccionarios
         data = [dict(row) for row in resultado.mappings().all()]
-        print(data)
+        #print(data)
         Rama = consultaRama(db)
         #print(Rama)
         Entidad = consultaEntidad(db)

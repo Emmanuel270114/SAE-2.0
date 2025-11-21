@@ -18,31 +18,34 @@
         </form>
     </div>
 
-
-    <!-- Formulario de registro/edición de usuarios -->
     {% if rol == 'Administrador' %}
     <div class="registro-container">
-        <h3 id="titulo-usuario">Registro Unidad Academica</h3>
+        <h3 id="titulo-usuario">Registro Unidad Académica</h3>
+
         <form id="registroUA">
             <div class="form-row">
                 <div class="form-group">
                     <label for="sigla">Sigla</label>
-                    <input type="text" id="sigla" name="sigla" placeholder="Sigla" required class="input-form">
+                    <input type="text" id="sigla" name="sigla" required class="input-form">
                 </div>
+
                 <div class="form-group">
                     <label for="nombreUA">Nombre</label>
-                    <input type="text" id="nombreUA" name="nombre" placeholder="Nombre" required class="input-form">
+                    <input type="text" id="nombreUA" name="nombre" required class="input-form">
                 </div>
+
                 <div class="form-group">
                     <label for="claveUA">Clave</label>
-                    <input type="text" id="claveUA" name="clave" placeholder="Clave" required class="input-form">
+                    <input type="text" id="claveUA" name="clave" required class="input-form">
                 </div>
             </div>
+
             <div class="form-row">
                 <div class="form-group">
                     <label for="director">Director</label>
-                    <input type="text" id="director" name="director" placeholder="Director/a" class="input-form">
+                    <input type="text" id="director" class="input-form">
                 </div>
+
                 <div class="form-group">
                     <label for="rama">Rama</label>
                     <select id="rama" class="input-form">
@@ -55,6 +58,7 @@
             </div>
 
             <div class="form-row">
+
                 <div class="form-group">
                     <label for="entidad">Entidad</label>
                     <select id="entidad" class="input-form">
@@ -78,26 +82,26 @@
                         <option value="">Selecciona una localidad</option>
                     </select>
                 </div>
-            </div>
 
+            </div>
 
             <div class="form-row">
                 <div class="form-group">
                     <label for="calle">Calle</label>
-                    <input type="text" id="calle" name="calle" placeholder="Calle" class="input-form">
+                    <input type="text" id="calle" class="input-form">
                 </div>
+
                 <div class="form-group">
                     <label for="colonia">Colonia</label>
-                    <input type="text" id="colonia" name="colonia" placeholder="Colonia" class="input-form">
+                    <input type="text" id="colonia" class="input-form">
                 </div>
+
                 <div class="form-group">
                     <label for="cp">C.P.</label>
-                    <input type="text" id="cp" name="cp" placeholder="Codigo Postal" required readonly
-                        class="input-form">
+                    <input type="text" id="cp" required readonly class="input-form">
                 </div>
             </div>
-            
-            <input type="hidden" id="id_usuario" name="id_usuario">
+
             <div class="form-row">
                 <button type="submit" id="btn-guardar">Registrar</button>
                 <button type="button" id="btn-cancelar">Cancelar</button>
@@ -105,16 +109,15 @@
                 <button type="button" id="btn-eliminar" style="display:none;">Eliminar</button>
             </div>
         </form>
+
         <div id="mensaje"></div>
     </div>
     {% endif %}
 
-
-    <!--  Filtro por Unidad Académica -->
     <div class="filtro-ua-box">
         <label for="filtro-ua">Filtrar por Unidad Académica:</label>
         <select id="filtro-ua" class="input-form">
-            <option value="">Todas las Unidades Académicas</option>
+            <option value="">Todas</option>
             {% for d in domicilios|unique(attribute='Sigla') %}
             <option value="{{ d.Sigla }}">{{ d.Sigla }}</option>
             {% endfor %}
@@ -136,9 +139,9 @@
                     <th>Entidad</th>
                     <th>Municipio</th>
                     <th>Localidad</th>
-
                 </tr>
             </thead>
+
             <tbody>
                 {% for d in domicilios %}
                 <tr class="fila-edit">
@@ -153,27 +156,37 @@
                     <td>{{ d.Nombre_Entidad }}</td>
                     <td>{{ d.Nombre_Municipio }}</td>
                     <td>{{ d.Nombre_Localidad }}</td>
-
                 </tr>
                 {% endfor %}
             </tbody>
+
         </table>
     </div>
 
-
-
-
+</div>
 
 {% endblock %}
 
 {% block scripts %}
-
-    
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    // --------------------
-    // Datos que vienen del backend (FastAPI → render_template)
-    // --------------------
+
+    // =====================================
+    // REFERENCIAS
+    // =====================================
+    const form = document.getElementById("registroUA");
+    const btnGuardar = document.getElementById("btn-guardar");
+    const btnEliminar = document.getElementById("btn-eliminar");
+    const btnCancelar = document.getElementById("btn-cancelar");
+    const btnLimpiar = document.getElementById("btn-limpiar");
+    const titulo = document.getElementById("titulo-usuario");
+
+    const filas = document.querySelectorAll(".fila-edit");
+
+    const entidadSelect = document.getElementById("entidad");
+    const municipioSelect = document.getElementById("municipio");
+    const localidadSelect = document.getElementById("localidad");
+
     const entidadesData = [
         {% for e in entidad %}
         {
@@ -184,319 +197,191 @@ document.addEventListener("DOMContentLoaded", () => {
         {% endfor %}
     ];
 
-    // Referencias globales (dentro del DOMContentLoaded)
-    const entidadSelect = document.getElementById("entidad");
-    const municipioSelect = document.getElementById("municipio");
-    const localidadSelect = document.getElementById("localidad");
-    const filas = document.querySelectorAll(".fila-edit");
-    const form = document.getElementById("registroUA");
-    const btnGuardar = document.getElementById("btn-guardar");
-    const btnEliminar = document.getElementById("btn-eliminar");
-    const btnCancelar = document.getElementById("btn-cancelar");
-    const btnLimpiar = document.getElementById("btn-limpiar");
-    const titulo = document.getElementById("titulo-usuario");
-    const filtroUA = document.getElementById("filtro-ua");
+    // =====================================
+    // FUNCIONES DE SELECT ANIDADO
+    // =====================================
 
-    // --------------------
-    // Helpers para poblar selects (sincrónicos — retornan Promise para usar await)
-    // --------------------
     function populateMunicipios(entidad) {
-        return new Promise((resolve) => {
-            municipioSelect.innerHTML = '<option value="">Selecciona un municipio</option>';
-            localidadSelect.innerHTML = '<option value="">Selecciona una localidad</option>';
-            localidadSelect.disabled = true;
+        municipioSelect.innerHTML = '<option value="">Selecciona un municipio</option>';
+        localidadSelect.innerHTML = '<option value="">Selecciona una localidad</option>';
+        localidadSelect.disabled = true;
 
-            if (!entidad) {
-                municipioSelect.disabled = true;
-                return resolve();
-            }
+        if (!entidad) {
+            municipioSelect.disabled = true;
+            return;
+        }
 
-            const municipios = [
-                ...new Set(
-                    entidadesData
-                        .filter(e => e.Nombre_Entidad === entidad)
-                        .map(e => e.Nombre_Municipio)
-                        .filter(Boolean)
-                )
-            ];
+        const municipios = [...new Set(
+            entidadesData.filter(e => e.Nombre_Entidad === entidad)
+                         .map(e => e.Nombre_Municipio)
+        )];
 
-            municipios.forEach(m => {
-                const opt = document.createElement("option");
-                opt.value = m;
-                opt.textContent = m;
-                municipioSelect.appendChild(opt);
-            });
-
-            municipioSelect.disabled = municipios.length === 0;
-            resolve();
+        municipios.forEach(m => {
+            const opt = document.createElement("option");
+            opt.value = opt.textContent = m;
+            municipioSelect.appendChild(opt);
         });
+
+        municipioSelect.disabled = false;
     }
 
     function populateLocalidades(entidad, municipio) {
-        return new Promise((resolve) => {
-            localidadSelect.innerHTML = '<option value="">Selecciona una localidad</option>';
+        localidadSelect.innerHTML = '<option value="">Selecciona una localidad</option>';
 
-            if (!municipio) {
-                localidadSelect.disabled = true;
-                return resolve();
-            }
+        if (!municipio) {
+            localidadSelect.disabled = true;
+            return;
+        }
 
-            const localidades = entidadesData
-                .filter(e =>
-                    e.Nombre_Entidad === entidad &&
-                    e.Nombre_Municipio === municipio
-                )
-                .map(e => e.Nombre_Localidad)
-                .filter(Boolean);
+        const localidades = [...new Set(
+            entidadesData.filter(e => e.Nombre_Entidad === entidad &&
+                                      e.Nombre_Municipio === municipio)
+                         .map(e => e.Nombre_Localidad)
+        )];
 
-            // Eliminar duplicados
-            const uniqLocalidades = [...new Set(localidades)];
-
-            uniqLocalidades.forEach(l => {
-                const opt = document.createElement("option");
-                opt.value = l;
-                opt.textContent = l;
-                localidadSelect.appendChild(opt);
-            });
-
-            localidadSelect.disabled = uniqLocalidades.length === 0;
-            resolve();
+        localidades.forEach(l => {
+            const opt = document.createElement("option");
+            opt.value = opt.textContent = l;
+            localidadSelect.appendChild(opt);
         });
+
+        localidadSelect.disabled = false;
     }
 
-    // --------------------
-    // Eventos de cambio de selects (usuario interactúa)
-    // --------------------
-    entidadSelect.addEventListener("change", async () => {
-        const entidadSeleccionada = entidadSelect.value;
-        await populateMunicipios(entidadSeleccionada);
-        // Si queremos dejar municipio seleccionado vacío al cambiar entidad, lo dejamos así.
+    entidadSelect.addEventListener("change", () => {
+        populateMunicipios(entidadSelect.value);
     });
 
-    municipioSelect.addEventListener("change", async () => {
-        const entidadSeleccionada = entidadSelect.value;
-        const municipioSeleccionado = municipioSelect.value;
-        await populateLocalidades(entidadSeleccionada, municipioSeleccionado);
+    municipioSelect.addEventListener("change", () => {
+        populateLocalidades(entidadSelect.value, municipioSelect.value);
     });
 
-    // --------------------
-    // Llenado del formulario cuando se hace click en una fila
-    // --------------------
+    // =====================================
+    // CARGAR UNA FILA AL FORMULARIO
+    // =====================================
+
     filas.forEach(fila => {
-        fila.addEventListener("click", async () => {
-            const celdas = fila.querySelectorAll("td");
+        fila.addEventListener("click", () => {
+            const c = fila.children;
 
-            // Campos simples
-            document.getElementById("sigla").value = celdas[0].textContent.trim();
-            document.getElementById("nombreUA").value = celdas[1].textContent.trim();
-            document.getElementById("claveUA").value = celdas[2].textContent.trim();
-            document.getElementById("director").value = celdas[3].textContent.trim();
-            document.getElementById("rama").value = celdas[4].textContent.trim();
-            document.getElementById("calle").value = celdas[5].textContent.trim();
-            document.getElementById("colonia").value = celdas[6].textContent.trim();
-            document.getElementById("cp").value = celdas[7].textContent.trim();
+            document.getElementById("sigla").value = c[0].textContent.trim();
+            document.getElementById("nombreUA").value = c[1].textContent.trim();
+            document.getElementById("claveUA").value = c[2].textContent.trim();
+            document.getElementById("director").value = c[3].textContent.trim();
+            document.getElementById("rama").value = c[4].textContent.trim();
+            document.getElementById("calle").value = c[5].textContent.trim();
+            document.getElementById("colonia").value = c[6].textContent.trim();
+            document.getElementById("cp").value = c[7].textContent.trim();
 
-            // ENTIDAD -> poblar municipios y seleccionar
-            const entidadVal = celdas[8].textContent.trim();
-            entidadSelect.value = entidadVal || "";
-            await populateMunicipios(entidadVal);
+            const entidad = c[8].textContent.trim();
+            const municipio = c[9].textContent.trim();
+            const localidad = c[10].textContent.trim();
 
-            // MUNICIPIO -> poblar localidades y seleccionar
-            const municipioVal = celdas[9].textContent.trim();
-            // Selecciona el option si existe; si no existe, lo agrega (esto evita fallos por discrepancias)
-            if (municipioVal) {
-                let opt = Array.from(municipioSelect.options).find(o => o.value === municipioVal);
-                if (!opt) {
-                    opt = document.createElement("option");
-                    opt.value = municipioVal;
-                    opt.textContent = municipioVal;
-                    municipioSelect.appendChild(opt);
-                }
-                municipioSelect.value = municipioVal;
-                await populateLocalidades(entidadVal, municipioVal);
-            } else {
-                municipioSelect.value = "";
-            }
+            entidadSelect.value = entidad;
+            populateMunicipios(entidad);
 
-            // LOCALIDAD -> seleccionar (añade si no existe)
-            const localidadVal = celdas[10].textContent.trim();
-            if (localidadVal) {
-                let optL = Array.from(localidadSelect.options).find(o => o.value === localidadVal);
-                if (!optL) {
-                    optL = document.createElement("option");
-                    optL.value = localidadVal;
-                    optL.textContent = localidadVal;
-                    localidadSelect.appendChild(optL);
-                }
-                localidadSelect.value = localidadVal;
-            } else {
-                localidadSelect.value = "";
-            }
+            setTimeout(() => {
+                municipioSelect.value = municipio;
+                populateLocalidades(entidad, municipio);
 
-            // Ajustar botones/título
+                setTimeout(() => {
+                    localidadSelect.value = localidad;
+                }, 150);
+            }, 150);
+
             btnGuardar.textContent = "Actualizar";
             btnEliminar.style.display = "inline-block";
             titulo.textContent = "Editar Unidad Académica";
         });
     });
 
-    // --------------------
-    // Filtro por Unidad Académica
-    // --------------------
-    if (filtroUA) {
-        filtroUA.addEventListener("change", function () {
-            const valor = filtroUA.value.toLowerCase().trim();
-            const filasTabla = document.querySelectorAll("#tabla-domicilios tbody tr");
+    // =====================================
+    // CRUD (Registrar / Actualizar)
+    // =====================================
 
-            filasTabla.forEach(fila => {
-                const unidad = fila.cells[0].textContent.toLowerCase().trim();
-                if (valor === "" || unidad === valor) {
-                    fila.style.display = "";
-                } else {
-                    fila.style.display = "none";
-                }
-            });
-        });
-    }
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
 
-    // --------------------
-    // Botones limpiar / cancelar / eliminar
-    // --------------------
-    btnLimpiar.addEventListener("click", function () {
-        form.reset();
-        titulo.textContent = "Registro Unidad Académica";
-        btnGuardar.textContent = "Registrar";
-        btnEliminar.style.display = "none";
-    });
+        const data = {
+            sigla: sigla.value.trim(),
+            nombre: nombreUA.value.trim(),
+            clave: claveUA.value.trim(),
+            director: director.value.trim(),
+            rama: rama.value,
+            calle: calle.value,
+            colonia: colonia.value,
+            cp: cp.value,
+            entidad: entidadSelect.value,
+            municipio: municipioSelect.value,
+            localidad: localidadSelect.value
+        };
 
-    btnCancelar.addEventListener("click", function () {
-        form.reset();
-        btnGuardar.textContent = "Registrar";
-        btnEliminar.style.display = "none";
-        titulo.textContent = "Registro Unidad Académica";
-    });
-
-    btnEliminar.addEventListener("click", function () {
-        const sigla = document.getElementById("sigla").value;
-        if (confirm(`¿Seguro que deseas eliminar la unidad académica "${sigla}"?`)) {
-            console.log("Eliminando unidad:", sigla);
-            form.reset();
-            btnGuardar.textContent = "Registrar";
-            btnEliminar.style.display = "none";
-            titulo.textContent = "Registro Unidad Académica";
+        if (!data.sigla || !data.nombre || !data.clave) {
+            alert("Sigla, Nombre y Clave son obligatorios.");
+            return;
         }
-    });
 
-});
+        if (btnGuardar.textContent === "Registrar") {
+            const res = await fetch("/registrarUA", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
 
-// =========================
-// FUNCIONES DE CRUD (FASTAPI)
-// =========================
+            const r = await res.json();
+            alert(r.msg || "Registrado correctamente");
+        } else {
+            const res = await fetch(`/actualizarUA/${data.sigla}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            });
 
-// Obtener datos del formulario
-function getFormData() {
-    return {
-        sigla: document.getElementById("sigla").value.trim(),
-        nombre: document.getElementById("nombreUA").value.trim(),
-        clave: document.getElementById("claveUA").value.trim(),
-        director: document.getElementById("director").value.trim(),
-        rama: document.getElementById("rama").value.trim(),
-        calle: document.getElementById("calle").value.trim(),
-        colonia: document.getElementById("colonia").value.trim(),
-        cp: document.getElementById("cp").value.trim(),
-        entidad: document.getElementById("entidad").value,
-        municipio: document.getElementById("municipio").value,
-        localidad: document.getElementById("localidad").value,
-    };
-}
-
-// Validar datos mínimos
-function validar(data) {
-    if (!data.sigla || !data.nombre || !data.clave) {
-        alert("Debe llenar al menos: Sigla, Nombre y Clave.");
-        return false;
-    }
-    return true;
-}
-
-// -------------------------
-// REGISTRAR UA
-// -------------------------
-btnGuardar.addEventListener("click", async function (e) {
-    e.preventDefault();
-
-    const data = getFormData();
-    if (!validar(data)) return;
-
-    if (btnGuardar.textContent === "Registrar") {
-        // --- Crear UA ---
-        const respuesta = await fetch("/registrarUA", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-        });
-
-        const res = await respuesta.json();
-        alert(res.msg || "Registrado correctamente");
-
-        form.reset();
-        btnEliminar.style.display = "none";
-        titulo.textContent = "Registro Unidad Académica";
-        btnGuardar.textContent = "Registrar";
-
-        location.reload(); // Recargar tabla
-    } else {
-        // --- Actualizar UA ---
-        const respuesta = await fetch(`/actualizarUA/${data.sigla}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-        });
-
-        const res = await respuesta.json();
-        alert(res.msg || "Actualizado correctamente");
-
-        form.reset();
-        btnEliminar.style.display = "none";
-        titulo.textContent = "Registro Unidad Académica";
-        btnGuardar.textContent = "Registrar";
+            const r = await res.json();
+            alert(r.msg || "Actualizado correctamente");
+        }
 
         location.reload();
-    }
-});
-
-// -------------------------
-// ELIMINAR UA
-// -------------------------
-btnEliminar.addEventListener("click", async function () {
-    const sigla = document.getElementById("sigla").value;
-
-    if (!sigla) {
-        alert("No hay una unidad seleccionada");
-        return;
-    }
-
-    if (!confirm(`¿Seguro que deseas eliminar la unidad "${sigla}"?`)) {
-        return;
-    }
-
-    const respuesta = await fetch(`/eliminarUA/${sigla}`, {
-        method: "DELETE",
     });
 
-    const res = await respuesta.json();
-    alert(res.msg || "Eliminado correctamente");
+    // =====================================
+    // ELIMINAR UA
+    // =====================================
+    btnEliminar.addEventListener("click", async () => {
+        const sigla = document.getElementById("sigla").value;
 
-    form.reset();
-    btnGuardar.textContent = "Registrar";
-    btnEliminar.style.display = "none";
-    titulo.textContent = "Registro Unidad Académica";
+        if (!sigla) return alert("No hay una unidad seleccionada.");
 
-    location.reload();
+        if (!confirm(`¿Eliminar la unidad "${sigla}"?`)) return;
+
+        const res = await fetch(`/eliminarUA/${sigla}`, {
+            method: "DELETE"
+        });
+
+        const r = await res.json();
+        alert(r.msg || "Eliminado correctamente");
+
+        location.reload();
+    });
+
+    // =====================================
+    // LIMPIAR / CANCELAR
+    // =====================================
+
+    btnLimpiar.addEventListener("click", () => {
+        form.reset();
+        btnGuardar.textContent = "Registrar";
+        btnEliminar.style.display = "none";
+        titulo.textContent = "Registro Unidad Académica";
+    });
+
+    btnCancelar.addEventListener("click", () => {
+        form.reset();
+        btnGuardar.textContent = "Registrar";
+        btnEliminar.style.display = "none";
+        titulo.textContent = "Registro Unidad Académica";
+    });
+
 });
-
 </script>
-
-
-
-{% endblock %} 
+{% endblock %}
