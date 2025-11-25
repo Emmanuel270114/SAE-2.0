@@ -18,7 +18,8 @@
         </form>
     </div>
 
-    {% if rol == 'Administrador' %}
+    {% if rol == 'Administrador' or rol == 'Jefe/a de Departamento' or rol == 'Jefe/a de División' or rol == 'Director/a
+    de DII' %}
     <div class="registro-container">
         <h3 id="titulo-usuario">Registro Unidad Académica</h3>
 
@@ -51,7 +52,7 @@
                     <select id="rama" class="input-form">
                         <option value="">Selecciona una rama</option>
                         {% for r in rama %}
-                        <option value="{{ r.Nombre_Rama }}">{{ r.Nombre_Rama }}</option>
+                        <option value="{{ r.Id_Rama }}">{{ r.Nombre_Rama }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -98,16 +99,8 @@
 
                 <div class="form-group">
                     <label for="cp">C.P.</label>
-                    <input 
-                        type="text"     
-                        id="cp" 
-                        name="cp" 
-                        pattern="^\d{5}$" 
-                        maxlength="5"
-                        required
-                        title="Debe ser un número de exactamente 5 dígitos"
-                        class="input-form"
-                    />
+                    <input type="text" id="cp" name="cp" pattern="^\d{5}$" maxlength="5" required
+                        title="Debe ser un número de exactamente 5 dígitos" class="input-form" />
                 </div>
             </div>
 
@@ -178,32 +171,46 @@
 
 {% block scripts %}
 <script>
-document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("DOMContentLoaded", () => {
 
-    // =====================================
-    // REFERENCIAS
-    // =====================================
-    const form = document.getElementById("registroUA");
-    const btnGuardar = document.getElementById("btn-guardar");
-    const btnEliminar = document.getElementById("btn-eliminar");
-    const btnCancelar = document.getElementById("btn-cancelar");
-    const btnLimpiar = document.getElementById("btn-limpiar");
-    const titulo = document.getElementById("titulo-usuario");
+        // =====================================
+        // REFERENCIAS
+        // =====================================
+        const form = document.getElementById("registroUA");
+        const btnGuardar = document.getElementById("btn-guardar");
+        const btnEliminar = document.getElementById("btn-eliminar");
+        const btnCancelar = document.getElementById("btn-cancelar");
+        const btnLimpiar = document.getElementById("btn-limpiar");
+        const titulo = document.getElementById("titulo-usuario");
 
-    const filas = document.querySelectorAll(".fila-edit");
+        const filas = document.querySelectorAll(".fila-edit");
 
-    const entidadSelect = document.getElementById("entidad");
-    const municipioSelect = document.getElementById("municipio");
-    const localidadSelect = document.getElementById("localidad");
+        const entidadSelect = document.getElementById("entidad");
+        const municipioSelect = document.getElementById("municipio");
+        const localidadSelect = document.getElementById("localidad");
 
-    const entidadesData = [
-        {% for e in entidad %}
+        // =====================================
+        // DATOS ENTIDAD
+        // =====================================
+
+        const entidadesData = [
+            {% for e in entidad %}
         {
             Nombre_Entidad: "{{ e.Nombre_Entidad }}",
             Nombre_Municipio: "{{ e.Nombre_Municipio }}",
             Nombre_Localidad: "{{ e.Nombre_Localidad }}"
         },
         {% endfor %}
+    ];
+
+    // =====================================
+    // DATOS RAMA (PARA OBTENER Id_Rama)
+    // =====================================
+
+    const ramasData = [
+        {% for r in rama %}
+    { Id_Rama: "{{ r.Id_Rama }}", Nombre_Rama: "{{ r.Nombre_Rama }}" },
+    {% endfor %}
     ];
 
     // =====================================
@@ -222,7 +229,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const municipios = [...new Set(
             entidadesData.filter(e => e.Nombre_Entidad === entidad)
-                         .map(e => e.Nombre_Municipio)
+                .map(e => e.Nombre_Municipio)
         )];
 
         municipios.forEach(m => {
@@ -244,8 +251,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const localidades = [...new Set(
             entidadesData.filter(e => e.Nombre_Entidad === entidad &&
-                                      e.Nombre_Municipio === municipio)
-                         .map(e => e.Nombre_Localidad)
+                e.Nombre_Municipio === municipio)
+                .map(e => e.Nombre_Localidad)
         )];
 
         localidades.forEach(l => {
@@ -266,7 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // =====================================
-    // CARGAR UNA FILA AL FORMULARIO
+    // CARGAR UNA FILA AL FORMULARIO (CORREGIDO)
     // =====================================
 
     filas.forEach(fila => {
@@ -277,7 +284,13 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("nombreUA").value = c[1].textContent.trim();
             document.getElementById("claveUA").value = c[2].textContent.trim();
             document.getElementById("director").value = c[3].textContent.trim();
-            document.getElementById("rama").value = c[4].textContent.trim();
+
+            const nombreRama = c[4].textContent.trim();
+
+            // Buscar Id_Rama correspondiente
+            const rEncontrada = ramasData.find(r => r.Nombre_Rama === nombreRama);
+            document.getElementById("rama").value = rEncontrada ? rEncontrada.Id_Rama : "";
+
             document.getElementById("calle").value = c[5].textContent.trim();
             document.getElementById("colonia").value = c[6].textContent.trim();
             document.getElementById("cp").value = c[7].textContent.trim();
@@ -316,10 +329,10 @@ document.addEventListener("DOMContentLoaded", () => {
             nombre: nombreUA.value.trim(),
             clave: claveUA.value.trim(),
             director: director.value.trim(),
-            rama: rama.value,
+            rama: rama.value.trim(),
             calle: calle.value,
             colonia: colonia.value,
-            cp: cp.value,
+            cp: parseInt(cp.value) || null,
             entidad: entidadSelect.value,
             municipio: municipioSelect.value,
             localidad: localidadSelect.value
@@ -340,7 +353,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const r = await res.json();
             alert(r.msg || "Registrado correctamente");
         } else {
-            const res = await fetch(`/actualizarUA/${data.sigla}`, {
+            const res = await fetch(`/actualizarUA/`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(data)
