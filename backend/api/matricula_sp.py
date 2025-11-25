@@ -217,13 +217,18 @@ async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_
     print(f"Semestres: {len(semestres_formatted)}")
     print(f"Turnos: {len(turnos_formatted)}")
     
+    # DEBUG: Verificar si llegó la nota del SP
+    print(f"\n🔍 DEBUG NOTA DE RECHAZO:")
+    print(f"   nota_rechazo_sp = {nota_rechazo_sp}")
+    print(f"   es_capturista = {es_capturista}")
+    print(f"   tipo nota_rechazo_sp = {type(nota_rechazo_sp)}")
+    
     # VERIFICAR SI LA MATRÍCULA ESTÁ RECHAZADA (solo para capturistas)
     rechazo_info = None
-    if es_capturista and nota_rechazo_sp:
-        print(f"\n🔍 Matrícula RECHAZADA detectada - Nota del SP")
+    if es_capturista:
+        print(f"\n🔍 Usuario es CAPTURISTA - Verificando rechazo...")
         
-        # El SP ya nos trajo la nota de rechazo
-        # Ahora solo necesitamos obtener información adicional del usuario que rechazó
+        # Buscar el último rechazo en la base de datos
         ultimo_rechazo = db.query(Validacion).filter(
             Validacion.Id_Periodo == periodo_default_id,
             Validacion.Id_Formato == 1,  # Formato de matrícula
@@ -231,6 +236,8 @@ async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_
         ).order_by(Validacion.Fecha.desc()).first()
         
         if ultimo_rechazo:
+            print(f"✅ RECHAZO ENCONTRADO en tabla Validacion")
+            
             # Obtener información del usuario que rechazó
             from backend.database.models.Usuario import Usuario
             usuario_rechazo = db.query(Usuario).filter(
@@ -241,30 +248,32 @@ async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_
             if usuario_rechazo:
                 nombre_rechazo = f"{usuario_rechazo.Nombre} {usuario_rechazo.Paterno} {usuario_rechazo.Materno}".strip()
             
+            # Prioridad: usar nota del SP, si no está, usar la nota de la tabla Validacion
+            motivo_rechazo = nota_rechazo_sp if nota_rechazo_sp else (ultimo_rechazo.Nota or "Sin especificar motivo")
+            
             rechazo_info = {
-                'motivo': nota_rechazo_sp,  # Usar la nota que viene del SP
+                'motivo': motivo_rechazo,
                 'rechazado_por': nombre_rechazo,
                 'fecha': ultimo_rechazo.Fecha.strftime("%d/%m/%Y %H:%M") if ultimo_rechazo.Fecha else "",
                 'periodo': periodo_default_literal,
                 'unidad': unidad_actual.Nombre if unidad_actual else ""
             }
             
-            print(f"📋 Información de rechazo del SP:")
-            print(f"   Motivo: {rechazo_info['motivo'][:100]}...")
+            print(f"📋 Información de rechazo COMPLETA:")
+            print(f"   Motivo (de {'SP' if nota_rechazo_sp else 'Validacion'}): {motivo_rechazo[:100] if motivo_rechazo else 'N/A'}...")
             print(f"   Rechazado por: {rechazo_info['rechazado_por']}")
             print(f"   Fecha: {rechazo_info['fecha']}")
         else:
-            # Si no hay registro en Validacion pero el SP trajo nota, usar datos básicos
-            rechazo_info = {
-                'motivo': nota_rechazo_sp,
-                'rechazado_por': "Validador",
-                'fecha': "",
-                'periodo': periodo_default_literal,
-                'unidad': unidad_actual.Nombre if unidad_actual else ""
-            }
-            print(f"⚠️  Nota de rechazo del SP pero sin registro en Validacion")
+            print(f"✅ NO hay rechazo registrado en tabla Validacion")
+            
+            # Si el SP trajo nota pero no hay registro en Validacion, mostrar advertencia
+            if nota_rechazo_sp:
+                print(f"⚠️  ANOMALÍA: SP retornó nota pero no hay registro en Validacion:")
+                print(f"   Nota del SP: {nota_rechazo_sp[:100]}...")
+    else:
+        print(f"✅ Usuario NO es capturista - No se verifica rechazo")
 
-    # VERIFICAR SI EL USUARIO ACTUAL YA VALIDÓ/RECHAZÓ (para roles de validación)
+# VERIFICAR SI EL USUARIO ACTUAL YA VALIDÓ/RECHAZÓ (para roles de validación)    # VERIFICAR SI EL USUARIO ACTUAL YA VALIDÓ/RECHAZÓ (para roles de validación)
     usuario_ya_valido = False
     usuario_ya_rechazo = False
     
@@ -289,6 +298,13 @@ async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_
                 print(f"❌ Usuario YA RECHAZÓ esta matrícula (Fecha: {validacion_usuario.Fecha})")
         else:
             print(f"✅ Usuario NO ha validado/rechazado aún - Botones habilitados")
+
+    # DEBUG FINAL: Verificar qué se va a pasar al template
+    print(f"\n📤 DATOS A ENVIAR AL TEMPLATE:")
+    print(f"   rechazo_info = {rechazo_info}")
+    print(f"   es_capturista = {es_capturista}")
+    print(f"   usuario_ya_valido = {usuario_ya_valido}")
+    print(f"   usuario_ya_rechazo = {usuario_ya_rechazo}")
 
     return templates.TemplateResponse("matricula_consulta.html", {
         "request": request,
@@ -1680,7 +1696,7 @@ async def rechazar_semestre_rol(request: Request, db: Session = Depends(get_db))
         print(f"📋 Unidad Académica: {unidad_sigla}")
         
         # Construir nota completa con el nombre completo del usuario para información
-        nota_completa = f"RECHAZADO por {nombre_completo}: {motivo}"
+        nota_completa = f"{motivo}"
         
         print(f"📝 Nota completa: {nota_completa}")
         

@@ -1,4 +1,3 @@
-from warnings import catch_warnings
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
@@ -41,8 +40,9 @@ def domicilios_view(
         data = [dict(row) for row in resultado.mappings().all()]
         print(data)
         Rama = consultaRama(db)
-        print(Rama)
-
+        #print(Rama)
+        Entidad = consultaEntidad(db)
+        #print(Entidad)
 
     except Exception as e:
         print("Error al ejecutar SP_Consulta_Catalogo_Unidad_Academica:", e)
@@ -55,17 +55,43 @@ def domicilios_view(
             "request": request,
             "domicilios": data,
             "rol": Rol,
-            "rama": Rama
+            "rama": Rama,
+            "entidad": Entidad
         }
     )
 
 
 def consultaRama(db: Session):
     try:
-        query = text("SELECT * FROM cat_rama")  
-        resultado = db.execute(query)
-        datos = resultado.fetchall()
-        return {"ramas": [dict(row._mapping) for row in datos]}  # _mapping para SQLAlchemy 2.x
+        #Ejecutamos el SP
+        query = text("""EXEC dbo.SP_Consulta_Catalogo_Rama""")
+        resultado = db.execute(query, )
+        # Convertir el resultado a lista de diccionarios
+        data = [dict(row) for row in resultado.mappings().all()]
+        return data  
     except Exception as e:
         return {"error": str(e)}
     
+def consultaEntidad(db: Session):
+    try:
+        #Ejecutamos el SP
+        query = text("""EXEC dbo.SP_Consulta_Catalogo_Entidad""")
+        resultado = db.execute(query, )
+        # Convertir el resultado a lista de diccionarios
+        data = [dict(row) for row in resultado.mappings().all()]
+        return data  
+    except Exception as e:
+        return {"error": str(e)}
+    
+
+@router.post("/registrarUA")
+def registrar_ua(db: Session = Depends(get_db)):
+    print("Registrar")
+
+@router.put("/actualizarUA/{sigla}")
+def actualizar_ua(sigla: str, db: Session = Depends(get_db)):
+    print("Actualizar")
+
+@router.delete("/eliminarUA/{sigla}")
+def eliminar_ua(sigla: str, db: Session = Depends(get_db)):
+    print("Eliminar")

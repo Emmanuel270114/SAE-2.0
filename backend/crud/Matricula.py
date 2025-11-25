@@ -124,6 +124,9 @@ def execute_sp_consulta_matricula(
         Tuple[List[Dict], List[str], Optional[str]]: (filas como dicts, nombres de columnas, nota de rechazo)
     """
     try:
+        # Usar conexión raw para manejar múltiples result sets
+        connection = db.connection()
+        
         # Ejecutar el SP con parámetros seguros (incluyendo @UUsuario y @HHost)
         sql = text("""
             EXEC SP_Consulta_Matricula_Unidad_Academica 
@@ -133,7 +136,8 @@ def execute_sp_consulta_matricula(
                 @UUsuario = :usuario, 
                 @HHost = :host
         """)
-        result = db.execute(sql, {
+        
+        result = connection.execute(sql, {
             'unidad': unidad_sigla, 
             'periodo': periodo, 
             'nivel': nivel,
@@ -173,13 +177,15 @@ def execute_sp_consulta_matricula(
         # SEGUNDO RESULT SET: Nota de rechazo (si existe)
         nota_rechazo = None
         try:
-            if result.nextset():
-                nota_rows = result.fetchall()
-                if nota_rows and len(nota_rows) > 0:
-                    # El SP devuelve una sola columna 'Nota'
-                    nota_rechazo = nota_rows[0][0] if nota_rows[0][0] else None
-                    if nota_rechazo:
-                        print(f"📋 Nota de rechazo capturada del SP: {nota_rechazo[:100]}...")
+            # Usar nextset() en el cursor subyacente
+            if hasattr(result, 'cursor') and hasattr(result.cursor, 'nextset'):
+                if result.cursor.nextset():
+                    nota_rows = result.cursor.fetchall()
+                    if nota_rows and len(nota_rows) > 0:
+                        # El SP devuelve una sola columna 'Nota'
+                        nota_rechazo = nota_rows[0][0] if nota_rows[0][0] else None
+                        if nota_rechazo:
+                            print(f"📋 Nota de rechazo capturada del SP: {nota_rechazo[:100]}...")
         except Exception as e:
             print(f"⚠️ No se pudo capturar segundo result set (Nota): {e}")
 
