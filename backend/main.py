@@ -9,12 +9,11 @@ from backend.api import aprovechamiento_sp
 from backend.api import recuperacion
 from backend.api.catalogos import domicilios, estatus, periodos, programas, roles, semaforo, modulos, objetos
 from backend.core.templates import static
-
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 app = FastAPI()
-app.mount("/static", static)
+app.mount("/static", static, name="static")
 app.include_router(registro.router, prefix="/registro")
 app.include_router(login.router , prefix="/login")
 app.include_router(usuarios.router , prefix="/usuarios")
