@@ -8,12 +8,12 @@ from backend.core.templates import templates
 
 router = APIRouter()
 
+HHost: str = "Test"
+PPeriodo: str = "2025-2026/1"
 
 @router.get("/periodos", response_class=HTMLResponse)
 def domicilios_view(
     request: Request,
-    HHost: str = "Test",
-    PPeriodo: str = "2025-2026/1",
     db: Session = Depends(get_db)
 ):
     
@@ -54,3 +54,28 @@ def domicilios_view(
             "rol": Rol
         }
     )
+
+@router.post("/nuevo_periodo")  
+def nuevo_periodo(data: dict, db: Session = Depends(get_db)):
+    print(data)
+    try:
+        query = text("""
+            EXEC dbo.SP_Iniciar_Periodo
+                @PPeriodo = :PPeriodo,
+                @HHost = :HHost,
+                @UUsuario = :UUsuario
+                
+        """)
+        resultado = db.execute(query, {
+            "PPeriodo": data["periodo"],
+            "HHost": HHost,
+            "UUsuario": UUsuario
+        })
+
+        # Convertir el resultado a lista de diccionarios
+        data = [dict(row) for row in resultado.mappings().all()]
+        print(data) 
+    except Exception as e:
+        print("Error al ejecutar SP_Iniciar_Periodo:", e)
+        return {"success": False}
+    return {"success": True}

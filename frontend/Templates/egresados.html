@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block title %}Egresados{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="/static/css/components/header.css">
+<link rel="stylesheet" href="/static/css/components/tables.css">
+<link rel="stylesheet" href="/static/css/components/matricula_consulta.css">
+<link rel="stylesheet" href="/static/css/panel-rechazo.css">
+<script src="/static/js/matricula_inputs.js"></script>
+<style>
+    /* Ocultar el submenu de categorias que viene de base.html en esta vista */
+    .submenu-categorias-box {
+        display: none !important;
+    }
+
+    /* 3. Asegúrate de que el div.tabla-header no añada un espacio innecesario */
+    .tabla-matricula-container .tabla-header {
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Estilos visuales para inputs bloqueados */
+    .input-matricula-nueva.input-disabled {
+        background-color: #f3f4f6 !important;
+        /* gris claro */
+        color: #6b7280 !important;
+        /* gris medio */
+        border-color: #e5e7eb !important;
+        cursor: not-allowed !important;
+    }
+
+    /* Atenuar y desactivar interacción del contenedor cuando está bloqueado */
+    .matricula-box.input-container-disabled {
+        position: relative;
+        opacity: 0.6;
+        pointer-events: none;
+        /* evita focus/click */
+    }
+
+    /* Tooltip simple usando el atributo data-tooltip */
+    .matricula-box.input-container-disabled:hover::after {
+        opacity: 0.95;
+    }
+
+    .matricula-box.input-container-disabled::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        top: -26px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #111827;
+        color: #fff;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 10;
+    }
+
+    /* Apariencia deshabilitada para Total Grupos */
+    #input-total-grupos.input-disabled {
+        background-color: #f3f4f6 !important;
+        color: #6b7280 !important;
+        border-color: #e5e7eb !important;
+        cursor: not-allowed !important;
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="container">
+    <div class="header-usuarios">
+        <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario }}</strong>
+            {% if periodo_default_id %}
+            &nbsp;|&nbsp; Periodo: <strong>{{ periodo_default_literal }}</strong>
+            {% endif %}
+            {% if unidad_actual %}
+            &nbsp;|&nbsp; Unidad Académica: <strong>{{ unidad_actual.Nombre }}</strong>
+            {% endif %}
+        </div>
+        <form action="/mod_principal" method="get">
+            <button type="submit" class="btn-volver">Regresar</button>
+        </form>
+    </div>
+
+    <h2>Captura de Egresados</h2>
+
+
+
+    {% endblock %}

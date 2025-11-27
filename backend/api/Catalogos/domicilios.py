@@ -147,6 +147,7 @@ def actualizar_ua(data: dict, request: Request, db: Session = Depends(get_db)):
         query = text("""
             EXEC [dbo].[SP_Modifica_Catalogo_Unidad_Academica]
                 @UUnidad_Academica = :unidad_academica,
+                @NNueva_Sigla = :nueva_sigla,
                 @NNombre = :nombre,
                 @CClave = :clave,
                 @DDirector = :director,
@@ -157,7 +158,8 @@ def actualizar_ua(data: dict, request: Request, db: Session = Depends(get_db)):
                 @PPeriodo = :periodo
         """)
         db.execute(query, {
-            "unidad_academica": data.get("sigla"),
+            "unidad_academica": data.get("sigla_anterior"),
+            "nueva_sigla": data.get("sigla"),
             "nombre": data.get("nombre"),
             "clave": data.get("clave"),
             "director": data.get("director"),

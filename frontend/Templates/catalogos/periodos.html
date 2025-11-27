@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="/static/css/components/filters.css">
 <link rel="stylesheet" href="/static/css/components/tables.css">
 <link rel="stylesheet" href="/static/css/components/modal.css">
+
 {% endblock %}
 
 {% block content %}
@@ -21,42 +22,27 @@
 
 
 
-     <!-- Formulario de registro/edición de usuarios -->
-    {% if rol == 'Administrador' %}
-        <div class="registro-container">
+    <!-- Formulario de registro/edición de usuarios -->
+    {% if rol == 'Administrador' or rol == 'Jefe/a de Departamento' or rol == 'Jefe/a de División' or rol == 'Director/a
+    de DII' %}
+    <div class="registro-container">
         <h3 id="titulo-usuario">Registro Periodo</h3>
         <form id="registroP">
             <div class="form-row">
+
                 <div class="form-group">
                     <label for="perido">Periodo</label>
                     <input type="text" id="periodo" name="periodo" placeholder="Periodo" required class="input-form">
                 </div>
-                <div class="form-group">
-                    <label for="nombreUA">Descripcion</label>
-                    <select id="descripcion" name="descripcion" class="input-form" required>
-                        <option value="Activo">Activo</option>
-                        <option value="Inactivo">Inactivo</option>
-                    </select>
+                <div class="form-row">
+                    <button type="submit" id="btn-guardar">Registrar Nuevo Periodo</button>
                 </div>
             </div>
-           
-            <input type="hidden" id="id_usuario" name="id_usuario">
-            <div class="form-row">
-                <button type="submit" id="btn-guardar">Registrar</button>
-                <button type="button" id="btn-cancelar">Cancelar</button>
-                <button type="button" id="btn-limpiar">Limpiar</button>
-                <button type="button" id="btn-eliminar" style="display:none;">Eliminar</button>
-            </div>
+
         </form>
         <div id="mensaje"></div>
     </div>
     {% endif %}
-
-
-
-
-
-
 
 
 
@@ -70,7 +56,6 @@
             {% endfor %}
         </select>
     </div>
-
 
 
     <!-- 🔹 Tabla de periodos -->
@@ -100,100 +85,93 @@
 
 <!-- Script que sirve para el filtro por periodos -->
 <script>
-document.addEventListener("DOMContentLoaded", () => {
-    const filtro = document.getElementById("filtro-periodo");
-    const filas = document.querySelectorAll("#tabla-periodos tbody tr");
+    document.addEventListener("DOMContentLoaded", () => {
+        const filtro = document.getElementById("filtro-periodo");
+        const filas = document.querySelectorAll("#tabla-periodos tbody tr");
 
-    filtro.addEventListener("change", () => {
-        const valor = filtro.value.toLowerCase().trim();
+        filtro.addEventListener("change", () => {
+            const valor = filtro.value.toLowerCase().trim();
 
-        filas.forEach(fila => {
-            // Cambiado: ahora filtra por la columna 1 (Descripción)
-            const estado = fila.cells[1].textContent.toLowerCase().trim();
+            filas.forEach(fila => {
+                // Cambiado: ahora filtra por la columna 1 (Descripción)
+                const estado = fila.cells[1].textContent.toLowerCase().trim();
 
-            // Mostrar todas si no hay filtro o si coincide exactamente
-            if (valor === "" || estado === valor) {
-                fila.style.display = "";
-            } else {
-                fila.style.display = "none";
-            }
+                // Mostrar todas si no hay filtro o si coincide exactamente
+                if (valor === "" || estado === valor) {
+                    fila.style.display = "";
+                } else {
+                    fila.style.display = "none";
+                }
+            });
         });
     });
-});
 </script>
-
-
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-    const filas = document.querySelectorAll(".fila-edit");
-    const form = document.getElementById("registroP");
-    const btnGuardar = document.getElementById("btn-guardar");
-    const btnEliminar = document.getElementById("btn-eliminar");
-    const btnCancelar = document.getElementById("btn-cancelar");
-    const btnLimpiar = document.getElementById("btn-limpiar");
-    const titulo = document.getElementById("titulo-usuario");
+    document.addEventListener("DOMContentLoaded", () => {
 
-    // 🔹 Al seleccionar una fila, se llenan los campos del formulario
-    filas.forEach(fila => {
-        fila.addEventListener("click", () => {
-            const celdas = fila.querySelectorAll("td");
+        // 🔹 TOMAR EL ÚLTIMO PERIODO QUE LLEGA DESDE PYTHON (periodos[0] debería ser el más reciente)
+        {% if periodos %}
+        const ultimoPeriodo = "{{ periodos[0].Periodo }}";  // Ejemplo: "2022-2023/2"
+        {% else %}
+        const ultimoPeriodo = null;
+        {% endif %}
 
-            // Llenar los campos
-            document.getElementById("periodo").value = celdas[0].textContent.trim();
-            document.getElementById("descripcion").value = celdas[1].textContent.trim();
+        const inputPeriodo = document.getElementById("periodo");
 
-            // Cambiar el estado del formulario a modo edición
-            btnGuardar.textContent = "Actualizar";
-            btnEliminar.style.display = "inline-block";
-            titulo.textContent = "Editar Periodo";
+        if (ultimoPeriodo) {
+            const siguiente = calcularSiguientePeriodo(ultimoPeriodo);
+            inputPeriodo.value = siguiente;
+        }
+
+        // 🔹 Función para calcular el periodo siguiente
+        function calcularSiguientePeriodo(periodoActual) {
+            // periodoActual ejemplo: "2022-2023/2"
+            const [anos, numero] = periodoActual.split("/");
+            const [a1, a2] = anos.split("-").map(n => parseInt(n.trim()));
+            const n = parseInt(numero.trim());
+
+            let nuevoA1 = a1;
+            let nuevoA2 = a2;
+            let nuevoN = n;
+
+            if (n === 1) {
+                nuevoN = 2;
+            } else if (n === 2) {
+                nuevoA1 = a1 + 1;
+                nuevoA2 = a2 + 1;
+                nuevoN = 1;
+            }
+
+            return `${nuevoA1}-${nuevoA2}/${nuevoN}`;
+        }
+
+        // 🔹 Al registrar nuevo periodo → llamada a FastAPI
+        document.getElementById("registroP").addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const periodo = inputPeriodo.value;
+
+            const respuesta = await fetch("/nuevo_periodo", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ periodo })
+            });
+
+            const data = await respuesta.json();
+
+            const divMensaje = document.getElementById("mensaje");
+
+            if (data.success) {
+                divMensaje.innerHTML = `<span style="color:green">Periodo registrado: ${periodo}</span>`;
+            } else {
+                divMensaje.innerHTML = `<span style="color:red">${data.error}</span>`;
+            }
         });
-    });
 
-    // 🔹 Botón Limpiar (borra campos, mantiene el modo actual)
-    btnLimpiar.addEventListener("click", function () {
-        form.reset();
-        titulo.textContent = "Registro Periodo"
-        btnGuardar.textContent = "Registrar";
-        btnEliminar.style.display = "none";
     });
-
-    // 🔹 Botón Cancelar (restablece al modo "Registrar")
-    btnCancelar.addEventListener("click", function () {
-        form.reset();
-        btnGuardar.textContent = "Registrar";
-        btnEliminar.style.display = "none";
-        titulo.textContent = "Registro Periodo";
-    });
-
-    // 🔹 Botón Eliminar (opcional: lógica de borrado)
-    btnEliminar.addEventListener("click", function () {
-        const periodo = document.getElementById("periodo").value;
-        if (confirm(`¿Seguro que deseas eliminar el periodo "${periodo}"?`)) {
-            // Aquí puedes agregar tu petición fetch para eliminar en el backend Flask
-            console.log("Eliminando periodo:", periodo);
-
-            // Restablecer formulario
-            form.reset();
-            btnGuardar.textContent = "Registrar";
-            btnEliminar.style.display = "none";
-            titulo.textContent = "Registro Periodo";
-        }
-    });
-
-    // (Opcional) Si quieres limpiar automáticamente después de registrar
-    form.addEventListener("submit", function (e) {
-        e.preventDefault();
-        const modo = btnGuardar.textContent;
-        if (modo === "Registrar") {
-            console.log("Registrando nuevo periodo...");
-        } else {
-            console.log("Actualizando periodo existente...");
-        }
-        // Aquí puedes agregar tu fetch() al backend Flask según el modo
-    });
-});
 </script>
+
 
 
 {% endblock %}

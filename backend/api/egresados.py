@@ -1,30 +1,30 @@
-from fastapi import APIRouter, Request, Depends, Body
+from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from fastapi.responses import JSONResponse
-
 
 from backend.database.connection import get_db
 from backend.core.templates import templates
 
 router = APIRouter()
-HHost: str = "Test"
-PPeriodo: str = "2025-2026/1"
 
-@router.get("/semaforo", response_class=HTMLResponse)
-def semaforo_view(
+
+@router.get("/egresados", response_class=HTMLResponse)
+def egresados_view(
     request: Request,
+    HHost: str = "Test",
+    PPeriodo: str = "2025-2026/1",
     db: Session = Depends(get_db)
 ):
-    
-    UUsuario = request.cookies.get("nombre_usuario", "")
-    Rol = request.cookies.get("nombre_rol","")
-
+    """
+    Vista para consultar los egresados mediante un Stored Procedure.
+    """
+    UUsuario = str(request.cookies.get("nombre_usuario", ""))
+    Rol = str(request.cookies.get("nombre_rol",""))    
     try:
         # Ejecutar el Stored Procedure con parámetros nombrados
         query = text("""
-            EXEC dbo.SP_Consulta_Catalogo_Semaforo
+            EXEC dbo.SP_Consulta_Catalogo_Egresados
                 @UUsuario = :UUsuario,
                 @HHost = :HHost,
                 @PPeriodo = :PPeriodo
@@ -40,33 +40,16 @@ def semaforo_view(
         print(data)
 
     except Exception as e:
-        print("Error al ejecutar SP_Consulta_Catalogo_Semaforo:", e)
+        print("Error al ejecutar SP_Consulta_Catalogo_Egresados:", e)
         data = []
 
     # Renderizar la plantilla HTML con los resultados
     return templates.TemplateResponse(
-        "catalogos/semaforo.html",
+        "egresados.html",
         {
             "request": request,
-            "semaforo": data,
+            "egresados": data,
             "rol": Rol
         }
     )
 
-
-
-@router.post("/semaforo/registrar")
-async def registrar_semaforo(data: dict):
-    print(data)
-    return JSONResponse(
-            content={"mensaje": "Registrado correctamente"},
-            status_code=200
-        )
-
-router.put("/semaforo/actualizar")
-async def actualizar_semaforo(data: dict):
-    print(data)
-    return JSONResponse(
-            content={"mensaje": "Actualizado correctamente"},
-            status_code=200
-        )

@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mod_Principal</title>
     <link rel="stylesheet" href="/static/css/mod_principal.css">
 </head>
+
 <body>
     <div class="header-mod-principal">
         <form action="/login" method="get">
@@ -21,24 +23,32 @@
             <button id="Btn_Catalogos" class="btn-menu">Catálogos</button>
             <button id="Btn_Matricula" class="btn-menu">Matrícula</button>
             <button id="Btn_Aprovechamiento" class="btn-menu">Aprovechamiento Académico</button>
+            <button id="Btn_Egresados" class="btn-menu">Egresados</button>
             <button id="Btn_Dashboard" class="btn-menu">DashBoard SAE</button>
         </div>
         <script>
             // Navegar a la página de catálogos
-            document.getElementById('Btn_Catalogos').addEventListener('click', function() {
+            document.getElementById('Btn_Catalogos').addEventListener('click', function () {
                 window.location.href = '/usuarios/';
             });
             // Navegar a la página de captura de matrícula
-            document.getElementById('Btn_Matricula').addEventListener('click', function() {
+            document.getElementById('Btn_Matricula').addEventListener('click', function () {
                 window.location.href = '/matricula/consulta';
             });
 
             // Navegar a la página de aprovechamiento académico
-            document.getElementById('Btn_Aprovechamiento').addEventListener('click', function() {
+            document.getElementById('Btn_Aprovechamiento').addEventListener('click', function () {
                 window.location.href = '/aprovechamiento/consulta';
             });
+
+
+            // Navegar a la página de egresados
+            document.getElementById('Btn_Egresados').addEventListener('click', function () {
+                window.location.href = '/egresados/';
+            });
+
             // Abrir el dashboard externo de Power BI
-            document.getElementById('Btn_Dashboard').addEventListener('click', function() {
+            document.getElementById('Btn_Dashboard').addEventListener('click', function () {
                 const url = 'https://app.powerbi.com/links/cnsvi3jDc1?ctid=f94bf4d9-8097-4794-adf6-a5466ca28563&pbi_source=linkShare';
                 // Abrir en una nueva pestaña para no cerrar la aplicación
                 window.open(url, '_blank', 'noopener');
@@ -46,4 +56,5 @@
         </script>
     </div>
 </body>
+
 </html>

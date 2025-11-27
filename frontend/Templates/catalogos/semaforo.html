@@ -36,11 +36,14 @@
             <div class="form-row">
                 <div class="form-group">
                     <label for="color">Color</label>
-                    <input type="color" id="color" name="color" value="#000000" class="input-form">
+                    <div class="color-circle">
+                        <input type="color" id="color" name="color" value="#000000">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="descripcionSemaforo">Descripción Semáforo</label>
-                    <input type="text" id="descripcionSemaforo" name="descripcionSemaforo" placeholder="Ej. Alerta Alta" required class="input-form">
+                    <input type="text" id="descripcionSemaforo" name="descripcionSemaforo" placeholder="Ej. Alerta Alta"
+                        required class="input-form">
                 </div>
                 <div class="form-group">
                     <label for="estado">Estado</label>
@@ -54,7 +57,7 @@
                 <button type="submit" id="btn-guardar">Registrar</button>
                 <button type="button" id="btn-cancelar">Cancelar</button>
                 <button type="button" id="btn-limpiar">Limpiar</button>
-                <button type="button" id="btn-eliminar" style="display:none;">Eliminar</button>
+
             </div>
         </form>
     </div>
@@ -81,7 +84,7 @@
                     </td>
                     <td>{{ r.Descripcion_Semaforo }}</td>
                     <td>{{ r.Descripcion }}</td>
-                    
+
                 </tr>
                 {% endfor %}
             </tbody>
@@ -93,97 +96,96 @@
 {% block scripts %}
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-    const filas = document.querySelectorAll(".fila-edit");
-    const form = document.getElementById("registroSemaforo");
-    const btnGuardar = document.getElementById("btn-guardar");
-    const btnEliminar = document.getElementById("btn-eliminar");
-    const btnCancelar = document.getElementById("btn-cancelar");
-    const btnLimpiar = document.getElementById("btn-limpiar");
-    const titulo = document.getElementById("titulo-usuario");
+    document.addEventListener("DOMContentLoaded", function () {
+        const filas = document.querySelectorAll(".fila-edit");
+        const form = document.getElementById("registroSemaforo");
+        const btnGuardar = document.getElementById("btn-guardar");
+        const btnCancelar = document.getElementById("btn-cancelar");
+        const btnLimpiar = document.getElementById("btn-limpiar");
+        const titulo = document.getElementById("titulo-usuario");
 
-    // Al hacer clic en una fila, llenar el formulario
-    filas.forEach(fila => {
-        fila.addEventListener("click", () => {
-            const celdas = fila.querySelectorAll("td");
-            const colorSpan = celdas[0].querySelector(".semaforo");
-            const color = colorSpan.style.backgroundColor;
+        // Al hacer clic en una fila, llenar el formulario
+        filas.forEach(fila => {
+            fila.addEventListener("click", () => {
+                const celdas = fila.querySelectorAll("td");
+                const colorSpan = celdas[0].querySelector(".semaforo");
+                const color = colorSpan.style.backgroundColor;
 
-            // Convertir el color RGB a formato HEX
-            const rgbToHex = (rgb) => {
-                const match = rgb.match(/\d+/g);
-                if (!match) return "#000000";
-                return "#" + match.map(x => {
-                    const hex = parseInt(x).toString(16);
-                    return hex.length === 1 ? "0" + hex : hex;
-                }).join('');
-            };
+                // Convertir el color RGB a formato HEX
+                const rgbToHex = (rgb) => {
+                    const match = rgb.match(/\d+/g);
+                    if (!match) return "#000000";
+                    return "#" + match.map(x => {
+                        const hex = parseInt(x).toString(16);
+                        return hex.length === 1 ? "0" + hex : hex;
+                    }).join('');
+                };
 
-            document.getElementById("color").value = rgbToHex(color);
-            document.getElementById("descripcionSemaforo").value = celdas[1].textContent.trim();
-            document.getElementById("estado").value = celdas[2].textContent.trim();
+                document.getElementById("color").value = rgbToHex(color);
+                document.getElementById("descripcionSemaforo").value = celdas[1].textContent.trim();
+                document.getElementById("estado").value = celdas[2].textContent.trim();
 
-            // Cambiar al modo edición
-            btnGuardar.textContent = "Actualizar";
-            btnEliminar.style.display = "inline-block";
-            titulo.textContent = "Editar Semáforo";
+                // Cambiar al modo edición
+                btnGuardar.textContent = "Actualizar";
+                btnEliminar.style.display = "inline-block";
+                titulo.textContent = "Editar Semáforo";
+            });
         });
-    });
 
-    // Botón Limpiar: solo limpia campos
-    btnLimpiar.addEventListener("click", function () {
-        form.reset();
-        document.getElementById("color").value = "#000000"; // Valor por defecto
-        btnGuardar.textContent = "Registrar";
-        btnEliminar.style.display = "none";
-        titulo.textContent = "Registro Semáforo";
+        // Botón Limpiar: solo limpia campos
+        btnLimpiar.addEventListener("click", function () {
+            form.reset();
+            document.getElementById("color").value = "#000000"; // Valor por defecto
+            btnGuardar.textContent = "Registrar";
+            btnEliminar.style.display = "none";
+            titulo.textContent = "Registro Semáforo";
 
-    });
+        });
 
-    // Botón Cancelar: vuelve al modo registrar
-    btnCancelar.addEventListener("click", function () {
-        form.reset();
-        btnGuardar.textContent = "Registrar";
-        btnEliminar.style.display = "none";
-        titulo.textContent = "Registro Semáforo";
-        document.getElementById("color").value = "#ff0000";
-    });
-
-    // Botón Eliminar: confirmar y limpiar
-    btnEliminar.addEventListener("click", function () {
-        const desc = document.getElementById("descripcionSemaforo").value;
-        if (confirm(`¿Seguro que deseas eliminar el semáforo "${desc}"?`)) {
-            console.log("Eliminando semáforo:", desc);
-
-            // Aquí podrías hacer un fetch() a tu backend Flask para eliminarlo
-
+        // Botón Cancelar: vuelve al modo registrar
+        btnCancelar.addEventListener("click", function () {
             form.reset();
             btnGuardar.textContent = "Registrar";
             btnEliminar.style.display = "none";
             titulo.textContent = "Registro Semáforo";
             document.getElementById("color").value = "#ff0000";
-        }
-    });
+        });
 
-    // Evento Submit (distingue Registrar / Actualizar)
-    form.addEventListener("submit", function (e) {
-        e.preventDefault();
-        const modo = btnGuardar.textContent;
-        const datos = {
-            color: document.getElementById("color").value,
-            descripcionSemaforo: document.getElementById("descripcionSemaforo").value,
-            estado: document.getElementById("estado").value
-        };
 
-        if (modo === "Registrar") {
-            console.log("Registrando nuevo semáforo:", datos);
-            // fetch('/semaforo/registrar', { method: 'POST', body: JSON.stringify(datos) })
-        } else {
-            console.log("Actualizando semáforo existente:", datos);
-            // fetch('/semaforo/actualizar', { method: 'PUT', body: JSON.stringify(datos) })
-        }
+
+        // Evento Submit (distingue Registrar / Actualizar)
+        form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            const modo = btnGuardar.textContent;
+            const datos = {
+                color: document.getElementById("color").value,
+                descripcionSemaforo: document.getElementById("descripcionSemaforo").value,
+                estado: document.getElementById("estado").value
+            };
+
+            if (modo === "Registrar") {
+                console.log("Registrando nuevo semáforo:", datos);
+                fetch('/semaforo/registrar', {
+                    method: 'POST',
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(datos)
+                })
+                    .then(r => r.json())
+                    .then(resp => console.log(resp))
+                    .catch(e => console.error(e));
+            } else {
+                console.log("Actualizando semáforo existente:", datos);
+                fetch('/semaforo/actualizar', {
+                    method: 'PUT',
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(datos)
+                })
+                    .then(r => r.json())
+                    .then(resp => console.log(resp))
+                    .catch(e => console.error(e));
+            }
+        });
     });
-});
 </script>
 
 {% endblock %}

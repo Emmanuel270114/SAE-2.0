@@ -190,9 +190,13 @@
         const localidadSelect = document.getElementById("localidad");
 
         // =====================================
+        // VARIABLES DE CONTROL
+        // =====================================
+        let siglaOriginal = null;   // ✔ Aquí se almacenará la sigla anterior
+
+        // =====================================
         // DATOS ENTIDAD
         // =====================================
-
         const entidadesData = [
             {% for e in entidad %}
         {
@@ -204,9 +208,8 @@
     ];
 
     // =====================================
-    // DATOS RAMA (PARA OBTENER Id_Rama)
+    // DATOS RAMA
     // =====================================
-
     const ramasData = [
         {% for r in rama %}
     { Id_Rama: "{{ r.Id_Rama }}", Nombre_Rama: "{{ r.Nombre_Rama }}" },
@@ -216,7 +219,6 @@
     // =====================================
     // FUNCIONES DE SELECT ANIDADO
     // =====================================
-
     function populateMunicipios(entidad) {
         municipioSelect.innerHTML = '<option value="">Selecciona un municipio</option>';
         localidadSelect.innerHTML = '<option value="">Selecciona una localidad</option>';
@@ -273,21 +275,21 @@
     });
 
     // =====================================
-    // CARGAR UNA FILA AL FORMULARIO (CORREGIDO)
+    // CARGAR INFORMACIÓN DE UNA FILA AL FORMULARIO
     // =====================================
-
     filas.forEach(fila => {
         fila.addEventListener("click", () => {
             const c = fila.children;
 
-            document.getElementById("sigla").value = c[0].textContent.trim();
+            // ✔ Guardamos la sigla original antes de modificarla
+            siglaOriginal = c[0].textContent.trim();
+
+            document.getElementById("sigla").value = siglaOriginal;
             document.getElementById("nombreUA").value = c[1].textContent.trim();
             document.getElementById("claveUA").value = c[2].textContent.trim();
             document.getElementById("director").value = c[3].textContent.trim();
 
             const nombreRama = c[4].textContent.trim();
-
-            // Buscar Id_Rama correspondiente
             const rEncontrada = ramasData.find(r => r.Nombre_Rama === nombreRama);
             document.getElementById("rama").value = rEncontrada ? rEncontrada.Id_Rama : "";
 
@@ -318,9 +320,8 @@
     });
 
     // =====================================
-    // CRUD (Registrar / Actualizar)
+    // REGISTRAR / ACTUALIZAR UA
     // =====================================
-
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
 
@@ -343,7 +344,11 @@
             return;
         }
 
+        // ==========================
+        // Registrar
+        // ==========================
         if (btnGuardar.textContent === "Registrar") {
+
             const res = await fetch("/registrarUA", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -352,7 +357,15 @@
 
             const r = await res.json();
             alert(r.msg || "Registrado correctamente");
+
+            // ==========================
+            // Actualizar
+            // ==========================
         } else {
+
+            data.sigla_anterior = siglaOriginal;   // ✔ Mandamos la sigla original
+            data.sigla = document.getElementById("sigla").value.trim(); // nueva sigla
+
             const res = await fetch(`/actualizarUA/`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -367,13 +380,12 @@
     });
 
     // =====================================
-    // ELIMINAR UA
+    // ELIMINAR
     // =====================================
     btnEliminar.addEventListener("click", async () => {
         const sigla = document.getElementById("sigla").value;
 
         if (!sigla) return alert("No hay una unidad seleccionada.");
-
         if (!confirm(`¿Eliminar la unidad "${sigla}"?`)) return;
 
         const res = await fetch(`/eliminarUA/${sigla}`, {
@@ -389,12 +401,12 @@
     // =====================================
     // LIMPIAR / CANCELAR
     // =====================================
-
     btnLimpiar.addEventListener("click", () => {
         form.reset();
         btnGuardar.textContent = "Registrar";
         btnEliminar.style.display = "none";
         titulo.textContent = "Registro Unidad Académica";
+        siglaOriginal = null;
     });
 
     btnCancelar.addEventListener("click", () => {
@@ -402,8 +414,10 @@
         btnGuardar.textContent = "Registrar";
         btnEliminar.style.display = "none";
         titulo.textContent = "Registro Unidad Académica";
+        siglaOriginal = null;
     });
 
 });
 </script>
+
 {% endblock %}
