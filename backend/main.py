@@ -11,7 +11,8 @@ from backend.api.catalogos import domicilios, estatus, periodos, programas, role
 from backend.core.templates import static
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
+import os
 
 app = FastAPI()
 app.mount("/static", static)
@@ -34,6 +35,13 @@ app.include_router(roles.router)
 
 
 app.include_router(recuperacion.router)
+
+@app.get("/favicon.ico")
+async def favicon():
+    favicon_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "static", "favicon.ico")
+    if os.path.exists(favicon_path):
+        return FileResponse(favicon_path, media_type="image/x-icon")
+    return RedirectResponse(url="/static/favicon.ico")
 
 @app.get("/", response_class=HTMLResponse)
 async def root():

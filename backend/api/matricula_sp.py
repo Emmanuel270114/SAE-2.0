@@ -85,6 +85,80 @@ async def captura_matricula_sp_view(request: Request, db: Session = Depends(get_
     print(f"ID Nivel: {id_nivel}")
     print(f"{'='*60}")
 
+    # **VALIDACIÓN DE ACCESO PARA ROLES 6, 7, 8**
+    # Estos roles solo pueden ver la matrícula cuando el semáforo esté en 3 o mayor (Validado)
+    if id_rol in [6, 7, 8]:
+        print(f"\n🔐 Verificando acceso para rol {id_rol} - Requiere semáforo >= 3")
+        
+        # Obtener periodo por defecto
+        periodo_default_id = PERIODO_DEFAULT_ID
+        
+        # Consultar el estado del semáforo para esta unidad académica
+        semaforo = db.query(SemaforoUnidadAcademica).filter(
+            SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
+            SemaforoUnidadAcademica.Id_Periodo == periodo_default_id,
+            SemaforoUnidadAcademica.Id_Formato == 1  # 1 = Formato de Matrícula
+        ).first()
+        
+        if not semaforo:
+            print(f"⚠️ No se encontró semáforo para UA={id_unidad_academica}, Periodo={periodo_default_id}")
+            return templates.TemplateResponse("matricula_consulta.html", {
+                "request": request,
+                "acceso_restringido": True,
+                "mensaje_restriccion": "La información aún no está disponible. La unidad académica debe iniciar la captura de matrícula.",
+                "nombre_usuario": nombre_completo,
+                "nombre_rol": nombre_rol,
+                # Variables requeridas por el template (valores vacíos para acceso restringido)
+                "grupos_edad": [],
+                "tipos_ingreso": [],
+                "semestres": [],
+                "semestres_map_json": "{}",
+                "periodo_default_literal": "",
+                "es_capturista": False,
+                "modo_vista": "validacion",
+                "id_rol": id_rol,
+                "es_validador": True,
+                "semaforo_estados": [],
+                "turnos": [],
+                "programas": [],
+                "modalidades": []
+            })
+        
+        if semaforo.Id_Semaforo < 3:
+            print(f"🚫 ACCESO DENEGADO - Semáforo actual: {semaforo.Id_Semaforo} (requiere >= 3)")
+            
+            # Obtener descripción del semáforo actual
+            semaforo_actual = db.query(CatSemaforo).filter(
+                CatSemaforo.Id_Semaforo == semaforo.Id_Semaforo
+            ).first()
+            
+            descripcion_estado = semaforo_actual.Descripcion_Semaforo if semaforo_actual else f"Estado {semaforo.Id_Semaforo}"
+            
+            return templates.TemplateResponse("matricula_consulta.html", {
+                "request": request,
+                "acceso_restringido": True,
+                "mensaje_restriccion": f"La información aún no está disponible para validación. \n La unidad académica debe completar y validar la captura primero.",
+                "nombre_usuario": nombre_completo,
+                "nombre_rol": nombre_rol,
+                "estado_actual": descripcion_estado,
+                # Variables requeridas por el template (valores vacíos para acceso restringido)
+                "grupos_edad": [],
+                "tipos_ingreso": [],
+                "semestres": [],
+                "semestres_map_json": "{}",
+                "periodo_default_literal": "",
+                "es_capturista": False,
+                "modo_vista": "validacion",
+                "id_rol": id_rol,
+                "es_validador": True,
+                "semaforo_estados": [],
+                "turnos": [],
+                "programas": [],
+                "modalidades": []
+            })
+        
+        print(f"✅ ACCESO PERMITIDO - Semáforo en estado {semaforo.Id_Semaforo} (>= 3, Validado)")
+
     # Obtener SOLO período y unidad desde la base de datos (mínimo necesario)
     periodos = db.query(Periodo).all()
     unidades_academicas = db.query(Unidad_Academica).filter(
@@ -447,6 +521,167 @@ async def semestres_map_sp(db: Session = Depends(get_db)):
     except Exception as e:
         return {"error": str(e)}
 
+@router.get("/verificar_finalizacion_disponible")
+async def verificar_finalizacion_disponible(request: Request, db: Session = Depends(get_db)):
+    """
+    Verifica si el botón 'Finalizar Captura' debe mostrarse.
+    Condiciones:
+    - TODOS los semestres de TODOS los programas/modalidades deben estar en estado 3
+    - El semáforo general debe estar en estado 2 (captura)
+    """
+    try:
+        id_unidad_academica = int(request.cookies.get("id_unidad_academica", 0))
+        id_nivel = int(request.cookies.get("id_nivel", 0))
+        nombre_usuario = request.cookies.get("nombre_usuario", "")
+        apellidoP_usuario = request.cookies.get("apellidoP_usuario", "")
+        apellidoM_usuario = request.cookies.get("apellidoM_usuario", "")
+        nombre_completo = " ".join(filter(None, [nombre_usuario, apellidoP_usuario, apellidoM_usuario]))
+        
+        usuario_sp = nombre_completo or 'sistema'
+        host_sp = get_request_host(request)
+        periodo_literal = PERIODO_DEFAULT_LITERAL
+        periodo_id = PERIODO_DEFAULT_ID
+        
+        # Verificar el estado del semáforo general
+        semaforo_unidad = db.query(SemaforoUnidadAcademica).filter(
+            SemaforoUnidadAcademica.Id_Periodo == periodo_id,
+            SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
+            SemaforoUnidadAcademica.Id_Formato == 1
+        ).first()
+        
+        if not semaforo_unidad:
+            return {
+                "mostrar_boton": False,
+                "razon": "No se encontró semáforo para la unidad académica"
+            }
+        
+        if semaforo_unidad.Id_Semaforo != 2:
+            return {
+                "mostrar_boton": False,
+                "razon": f"Semáforo en estado {semaforo_unidad.Id_Semaforo} (requiere estado 2)",
+                "estado_actual": semaforo_unidad.Id_Semaforo
+            }
+        
+        # Obtener TODOS los datos del SP para verificar TODOS los programas/modalidades/semestres
+        rows_sp, metadata_sp, debug_msg, nota_rechazo = execute_matricula_sp_with_context(
+            db,
+            id_unidad_academica,
+            id_nivel,
+            periodo_literal,
+            periodo_literal,
+            usuario_sp,
+            host_sp
+        )
+        
+        # Extraer combinaciones únicas de programa/modalidad/semestre y sus estados
+        combinaciones = {}
+        for row in rows_sp:
+            programa = row.get('Nombre_Programa', 'N/A')
+            modalidad = row.get('Nombre_Modalidad', 'N/A')
+            semestre = row.get('Semestre', 'N/A')
+            id_semaforo = row.get('Id_Semaforo', 0)
+            
+            key = f"{programa}|{modalidad}|{semestre}"
+            if key not in combinaciones:
+                combinaciones[key] = id_semaforo
+        
+        # Verificar que TODAS las combinaciones estén en estado 3
+        total_combinaciones = len(combinaciones)
+        combinaciones_completadas = sum(1 for estado in combinaciones.values() if estado == 3)
+        
+        if total_combinaciones == 0:
+            return {
+                "mostrar_boton": False,
+                "razon": "No hay datos de matrícula"
+            }
+        
+        if combinaciones_completadas == total_combinaciones:
+            return {
+                "mostrar_boton": True,
+                "total_combinaciones": total_combinaciones,
+                "combinaciones_completadas": combinaciones_completadas,
+                "mensaje": "Todos los programas, modalidades y semestres están validados"
+            }
+        else:
+            return {
+                "mostrar_boton": False,
+                "razon": f"Faltan {total_combinaciones - combinaciones_completadas} combinaciones por validar",
+                "total_combinaciones": total_combinaciones,
+                "combinaciones_completadas": combinaciones_completadas
+            }
+            
+    except Exception as e:
+        print(f"Error verificando finalización: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"error": str(e), "mostrar_boton": False}
+
+@router.post("/finalizar_captura")
+async def finalizar_captura(request: Request, db: Session = Depends(get_db)):
+    """
+    Ejecuta el SP_Finaliza_Captura_Matricula para completar la captura.
+    Cambia el semáforo de estado 2 a estado 3.
+    """
+    try:
+        id_unidad_academica = int(request.cookies.get("id_unidad_academica", 0))
+        id_nivel = int(request.cookies.get("id_nivel", 0))
+        nombre_usuario = request.cookies.get("nombre_usuario", "")
+        apellidoP_usuario = request.cookies.get("apellidoP_usuario", "")
+        apellidoM_usuario = request.cookies.get("apellidoM_usuario", "")
+        nombre_completo = " ".join(filter(None, [nombre_usuario, apellidoP_usuario, apellidoM_usuario]))
+        
+        usuario_sp = nombre_completo or 'sistema'
+        host_sp = get_request_host(request)
+        periodo_literal = PERIODO_DEFAULT_LITERAL
+        
+        # Obtener información de la unidad académica
+        unidad = db.query(Unidad_Academica).filter(
+            Unidad_Academica.Id_Unidad_Academica == id_unidad_academica
+        ).first()
+        
+        nivel = db.query(Nivel).filter(Nivel.Id_Nivel == id_nivel).first()
+        
+        if not unidad or not nivel:
+            return {"error": "No se encontró la unidad académica o nivel"}
+        
+        unidad_sigla = unidad.Sigla
+        nivel_nombre = nivel.Nivel
+        
+        print(f"\n{'='*60}")
+        print(f"🚀 EJECUTANDO SP_Finaliza_Captura_Matricula (Manual)")
+        print(f"{'='*60}")
+        print(f"Usuario: {usuario_sp}")
+        print(f"Unidad: {unidad_sigla}")
+        print(f"Nivel: {nivel_nombre}")
+        print(f"Periodo: {periodo_literal}")
+        
+        # Ejecutar el SP (sin parámetros de programa/modalidad/semestre específicos)
+        execute_sp_finaliza_captura_matricula(
+            db,
+            unidad_sigla=unidad_sigla,
+            programa_nombre="",  # Vacío para procesar todos
+            modalidad_nombre="",  # Vacío para procesar todos
+            semestre_nombre="",  # Vacío para procesar todos
+            salones=0,  # El SP calculará internamente
+            usuario=usuario_sp,
+            periodo=periodo_literal,
+            host=host_sp,
+            nivel=nivel_nombre
+        )
+        
+        print(f"✅ SP_Finaliza_Captura_Matricula ejecutado exitosamente")
+        
+        return {
+            "success": True,
+            "mensaje": "Captura finalizada exitosamente. El semáforo ha cambiado a estado 3."
+        }
+        
+    except Exception as e:
+        print(f"❌ Error al finalizar captura: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {"error": f"Error al finalizar captura: {str(e)}"}
+
 @router.post("/guardar_captura_completa")
 async def guardar_captura_completa(request: Request, db: Session = Depends(get_db)):
     """
@@ -514,6 +749,31 @@ async def guardar_captura_completa(request: Request, db: Session = Depends(get_d
         rama_obj = None
         if programa_obj and programa_obj.Id_Rama_Programa:
             rama_obj = db.query(Rama).filter(Rama.Id_Rama == programa_obj.Id_Rama_Programa).first()
+        
+        # Si el programa es "Tronco Común", usar rama por defecto 
+        #Revisar que la Rama a la que pertenezca este con el Estatus = 1 (Activa), sino el SP no funciona
+        if programa_obj and 'tronco común' in programa_obj.Nombre_Programa.lower():
+            print(f"🎓 Programa 'Tronco Común' detectado - Usando rama por defecto")
+            rama_default = db.query(Rama).filter(
+                Rama.Nombre_Rama == 'Ingeniería y Ciencias Físico Matemáticas'
+            ).first()
+            if rama_default:
+                rama_obj = rama_default
+                print(f"✅ Rama por defecto asignada: {rama_obj.Nombre_Rama}")
+            else:
+                print(f"⚠️ Rama 'Ingeniería y Ciencias Físico Matemáticas' no encontrada en BD")
+        
+        #Si el programa es "Propedeútico", usar rama por defecto
+        if programa_obj and 'propedeútico' in programa_obj.Nombre_Programa.lower():
+            print(f"🎓 Programa 'Propedeútico' detectado - Usando rama por defecto")
+            rama_default = db.query(Rama).filter(
+                Rama.Nombre_Rama == 'Ingeniería y Ciencias Físico Matemáticas'
+            ).first()
+            if rama_default:
+                rama_obj = rama_default
+                print(f"✅ Rama por defecto asignada: {rama_obj.Nombre_Rama}")
+            else:
+                print(f"⚠️ Rama 'Ingeniería y Ciencias Físico Matemáticas' no encontrada en BD")
 
         # Obtener sigla de la unidad académica y nivel desde cookies
         id_unidad_academica = int(request.cookies.get("id_unidad_academica", 0))
@@ -1320,105 +1580,13 @@ async def validar_captura_semestre(request: Request, db: Session = Depends(get_d
         print(f"\n✅ SP_Actualiza_Matricula_Por_Semestre_AU ejecutado exitosamente")
         print(f"Filas finales devueltas: {len(rows_list)}")
         
-        # VERIFICAR SI SE DEBE EJECUTAR SP_Finaliza_Captura_Matricula
+        # ❌ DESHABILITADO: Ya NO se ejecuta automáticamente
+        # El SP_Finaliza_Captura_Matricula ahora se ejecuta mediante el botón "Finalizar Captura"
         print(f"\n{'='*60}")
-        print(f"🔍 VERIFICANDO CONDICIONES PARA SP_Finaliza_Captura_Matricula")
+        print(f"ℹ️  SP_Finaliza_Captura_Matricula deshabilitado (modo manual)")
         print(f"{'='*60}")
-        
-        # Obtener el período como ID para consultar SemaforoUnidadAcademica
-        if str(periodo).isdigit():
-            periodo_id = int(periodo)
-        else:
-            periodo_obj = db.query(Periodo).filter(Periodo.Periodo == periodo_literal).first()
-            periodo_id = periodo_obj.Id_Periodo if periodo_obj else PERIODO_DEFAULT_ID
-        
-        # Verificar el estado del semáforo general en SemaforoUnidadAcademica
-        semaforo_unidad = db.query(SemaforoUnidadAcademica).filter(
-            SemaforoUnidadAcademica.Id_Periodo == periodo_id,
-            SemaforoUnidadAcademica.Id_Unidad_Academica == id_unidad_academica,
-            SemaforoUnidadAcademica.Id_Formato == 1  # Formato de matrícula
-        ).first()
-        
-        if not semaforo_unidad:
-            print(f"⚠️  No se encontró registro en SemaforoUnidadAcademica")
-            print(f"   Periodo: {periodo_id}, Unidad: {id_unidad_academica}, Formato: 1")
-            debe_ejecutar_sp_final = False
-        elif semaforo_unidad.Id_Semaforo == 3:
-            print(f"⏭️  SemaforoUnidadAcademica ya está en estado 3 (COMPLETADO)")
-            print(f"   SP_Finaliza_Captura_Matricula ya fue ejecutado previamente")
-            debe_ejecutar_sp_final = False
-        elif semaforo_unidad.Id_Semaforo == 2:
-            print(f"✅ SemaforoUnidadAcademica está en estado 2 (CAPTURA)")
-            print(f"🔍 Verificando que TODOS los semestres estén en estado 3...")
-            
-            # Verificar que TODOS los semestres tengan semáforo 3
-            # Obtenemos todos los semestres del SP
-            rows_metadata, metadata_filas, dbg, nota_rechazo_check = execute_matricula_sp_with_context(
-                db,
-                id_unidad_academica,
-                id_nivel,
-                periodo_literal,
-                periodo_literal,
-                usuario_sp,
-                host_sp,
-            )
-            
-            # Contar semestres y verificar sus estados
-            semestres_totales = set()
-            semestres_completados = set()
-            
-            for row in rows_metadata:
-                semestre_row = str(row.get('Semestre', ''))
-                id_semaforo_row = row.get('Id_Semaforo')
-                
-                if semestre_row:
-                    semestres_totales.add(semestre_row)
-                    if id_semaforo_row == 3:
-                        semestres_completados.add(semestre_row)
-            
-            print(f"   📊 Semestres totales: {len(semestres_totales)}")
-            print(f"   ✅ Semestres completados (estado 3): {len(semestres_completados)}")
-            print(f"   📋 Todos los semestres: {sorted(semestres_totales)}")
-            print(f"   ✅ Semestres con estado 3: {sorted(semestres_completados)}")
-            
-            if len(semestres_completados) == len(semestres_totales) and len(semestres_totales) > 0:
-                print(f"\n✅ CONDICIONES CUMPLIDAS:")
-                print(f"   ✅ Todos los semestres están en estado 3")
-                print(f"   ✅ SemaforoUnidadAcademica está en estado 2")
-                debe_ejecutar_sp_final = True
-            else:
-                print(f"\n⏭️  NO se ejecutará SP_Finaliza_Captura_Matricula:")
-                print(f"   Faltan {len(semestres_totales) - len(semestres_completados)} semestres por completar")
-                debe_ejecutar_sp_final = False
-        else:
-            print(f"⚠️  SemaforoUnidadAcademica en estado desconocido: {semaforo_unidad.Id_Semaforo}")
-            debe_ejecutar_sp_final = False
-        
-        # Ejecutar SP_Finaliza_Captura_Matricula solo si se cumplen las condiciones
+        debe_ejecutar_sp_final = False
         sp_final_ejecutado = False
-        if debe_ejecutar_sp_final:
-            print(f"\n{'='*60}")
-            print(f"🚀 EJECUTANDO SP_Finaliza_Captura_Matricula")
-            print(f"{'='*60}")
-            
-            execute_sp_finaliza_captura_matricula(
-                db,
-                unidad_sigla=unidad_sigla,
-                programa_nombre=programa_nombre,
-                modalidad_nombre=modalidad_nombre,
-                semestre_nombre=semestre_nombre,
-                salones=total_grupos,
-                usuario=usuario_sp,
-                periodo=periodo_literal,
-                host=host_sp,
-                nivel=nivel_nombre,
-            )
-            
-            print(f"✅ SP_Finaliza_Captura_Matricula ejecutado exitosamente")
-            print(f"   SemaforoUnidadAcademica ahora debería estar en estado 3")
-            sp_final_ejecutado = True
-        else:
-            print(f"\n⏭️  SP_Finaliza_Captura_Matricula NO ejecutado (condiciones no cumplidas)")
         
         # Verificar semáforo sin SQL crudo: reconsultar SP y extraer estado
         print(f"\n🔍 Consultando estado actualizado del semáforo vía SP...")

@@ -57,11 +57,64 @@
             border-color: #e5e7eb !important;
             cursor: not-allowed !important;
         }
+        /* Botón Finalizar Captura */
+        .btn-finalizar {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
+            transition: all 0.3s ease;
+            margin-left: 10px;
+        }
+        .btn-finalizar:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            box-shadow: 0 6px 8px rgba(16, 185, 129, 0.4);
+            transform: translateY(-2px);
+        }
+        .btn-finalizar:active {
+            transform: translateY(0);
+        }
     </style>
 {% endblock %}
 
 {% block content %}
 <div class="container">
+    <!-- **VERIFICACIÓN DE ACCESO RESTRINGIDO** -->
+    {% if acceso_restringido %}
+    <div class="header-usuarios">
+        <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario }}</strong></div>
+        <form action="/mod_principal" method="get">
+            <button type="submit" class="btn-volver">Regresar</button>
+        </form>
+    </div>
+    
+    <div style="display: flex; justify-content: center; align-items: center; min-height: 60vh;">
+        <div style="text-align: center; max-width: 600px; padding: 40px; background: linear-gradient(135deg, #6e0343 0%, #6e0343 100%); border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);">
+            <div style="font-size: 80px; margin-bottom: 20px;">🔒</div>
+            <h2 style="color: white; margin-bottom: 20px; font-size: 28px;">Información en Proceso de Captura</h2>
+            <p style="color: rgba(255,255,255,0.95); font-size: 18px; line-height: 1.6; margin-bottom: 30px;">
+                {{ mensaje_restriccion }}
+            </p>
+            {% if estado_actual %}
+            <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+                <p style="color: white; margin: 0; font-size: 16px;">
+                    <strong>Estado actual:</strong> {{ estado_actual }}
+                </p>
+            </div>
+            {% endif %}
+            <a href="/mod_principal" style="display: inline-block; padding: 12px 30px; background: white; color: #6e0343; text-decoration: none; border-radius: 25px; font-weight: bold; transition: all 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                Volver al Menú Principal
+            </a>
+        </div>
+    </div>
+    
+    {% else %}
+    <!-- **CONTENIDO NORMAL DE LA MATRÍCULA** -->
     <div class="header-usuarios">
         <div class="bienvenido">Bienvenido: <strong>{{ nombre_usuario }}</strong>
             {% if periodo_default_id %}
@@ -321,6 +374,10 @@
             <button id="btn-validar-matricula" type="button" class="btn-success" onclick="validarCapturaSemestre()">
                 ✅ Finalizar Turno
             </button>
+            <!-- Botón Finalizar Captura (solo visible cuando todo está validado) -->
+            <button id="btn-finalizar-captura" type="button" class="btn-finalizar" onclick="finalizarCaptura()" style="display:none;">
+                🏁 Finalizar Captura
+            </button>
             {% else %}
             <!-- Botones para roles de validación (ID 4, 5, 6, 7, 8) -->
             <button id="btn-validar-semestre" type="button" class="btn-success" onclick="validarSemestre()"
@@ -423,6 +480,9 @@
     </div>
 
     {% endif %}
+
+{% endif %}
+
 </div>
 
 {% endblock %}
@@ -452,6 +512,10 @@
 
     // Mapa: Total Grupos por semestre Y turno (independiente por cada combinación semestre-turno)
     let totalGruposPorSemestreYTurno = {};
+    
+    // **NUEVO: Sistema de conteo para validaciones completas**
+    let combinacionesTotales = new Set(); // Set de "programa|modalidad|semestre"
+    let combinacionesValidadas = new Set(); // Set de "programa|modalidad|semestre" validadas
 
     function generarClaveTotalGrupos() {
         const periodo = document.getElementById('periodo').value;
@@ -515,14 +579,25 @@
     // Función para cargar datos existentes cuando cambien los filtros usando SP
     async function cargarDatosExistentes() {
         const periodo = document.getElementById('periodo').value;
-        const programa = document.getElementById('programa').value;
+        let programa = document.getElementById('programa').value;
         const modalidad = document.getElementById('modalidad').value;
         const semestre = document.getElementById('semestre').value;
         const turno = document.getElementById('turno').value;
         
+        // **LÓGICA ESPECIAL PARA TRONCO COMÚN**
+        // Obtener el nombre del programa seleccionado
+        const programaSelect = document.getElementById('programa');
+        const programaNombre = programaSelect?.selectedOptions[0]?.text || '';
+        
+        // Si el programa es "Tronco Común", forzar id_programa = 1
+        if (programaNombre.toLowerCase().includes('tronco común')) {
+            console.log(`🎓 TRONCO COMÚN detectado (ID original: ${programa}) → Forzando ID = 1`);
+            programa = '1';
+        }
+        
         console.log('=== cargarDatosExistentes ===');
         console.log('Periodo:', periodo);
-        console.log('Programa:', programa);
+        console.log('Programa:', programa, `(${programaNombre})`);
         console.log('Modalidad:', modalidad);
         console.log('Semestre:', semestre);
         console.log('Turno:', turno);
@@ -561,6 +636,10 @@
             if (resultado.rows && resultado.rows.length > 0) {
                 console.log('✅ Renderizando desde SP con rows:', resultado.rows.length);
                 console.log('Primera fila:', resultado.rows[0]);
+                
+                // **EXTRAER COMBINACIONES TOTALES DEL SP**
+                extraerCombinacionesTotales(resultado.rows);
+                
                 renderMatriculaFromSP(resultado.rows, resultado.datos || {});
             } else {
                 console.log('⚠️ No hay rows del SP, generando tabla por defecto');
@@ -571,6 +650,91 @@
         } catch (error) {
             console.error('❌ Error al cargar datos existentes:', error);
             generarTablaVacia();
+        }
+    }
+    
+    // **FUNCIÓN PARA EXTRAER COMBINACIONES TOTALES DEL SP**
+    function extraerCombinacionesTotales(rows) {
+        console.log('📊 === EXTRAYENDO COMBINACIONES TOTALES ===');
+        
+        if (!rows || rows.length === 0) {
+            console.log('⚠️ No hay rows para extraer combinaciones');
+            return;
+        }
+        
+        combinacionesTotales = new Set();
+        
+        rows.forEach(row => {
+            const programa = row.Nombre_Programa || row.programa || '';
+            const modalidad = row.Nombre_Modalidad || row.modalidad || '';
+            const semestre = row.Semestre || '';
+            
+            if (programa && modalidad && semestre) {
+                const clave = `${programa}|${modalidad}|${semestre}`;
+                combinacionesTotales.add(clave);
+            }
+        });
+        
+        console.log(`📊 Total de combinaciones programa/modalidad/semestre: ${combinacionesTotales.size}`);
+        console.log('📋 Combinaciones:', Array.from(combinacionesTotales));
+        
+        // Cargar combinaciones validadas de localStorage
+        cargarCombinacionesValidadas();
+        
+        console.log(`✅ Combinaciones validadas: ${combinacionesValidadas.size}`);
+        console.log('✅ Lista:', Array.from(combinacionesValidadas));
+    }
+    
+    // **FUNCIÓN PARA VERIFICAR SI TODAS LAS COMBINACIONES ESTÁN VALIDADAS**
+    function verificarTodasCombinacionesValidadas() {
+        if (combinacionesTotales.size === 0) {
+            console.log('⚠️ No hay combinaciones totales definidas');
+            return false;
+        }
+        
+        const todasValidadas = combinacionesTotales.size === combinacionesValidadas.size &&
+                              Array.from(combinacionesTotales).every(comb => combinacionesValidadas.has(comb));
+        
+        console.log(`🔍 Verificación de completitud:`);
+        console.log(`   Total combinaciones: ${combinacionesTotales.size}`);
+        console.log(`   Combinaciones validadas: ${combinacionesValidadas.size}`);
+        console.log(`   ¿Todas validadas?: ${todasValidadas ? '✅ SÍ' : '❌ NO'}`);
+        
+        return todasValidadas;
+    }
+    
+    // **FUNCIÓN PARA MARCAR COMBINACIÓN COMO VALIDADA**
+    function marcarCombinacionValidada(programa, modalidad, semestre) {
+        const clave = `${programa}|${modalidad}|${semestre}`;
+        combinacionesValidadas.add(clave);
+        guardarCombinacionesValidadas();
+        
+        console.log(`✅ Combinación validada: ${clave}`);
+        console.log(`📊 Progreso: ${combinacionesValidadas.size}/${combinacionesTotales.size}`);
+    }
+    
+    // **GUARDAR/CARGAR COMBINACIONES VALIDADAS EN LOCALSTORAGE**
+    function cargarCombinacionesValidadas() {
+        try {
+            const key = `combinaciones_validadas_${periodoLiteral}`;
+            const raw = localStorage.getItem(key);
+            if (raw) {
+                const array = JSON.parse(raw);
+                combinacionesValidadas = new Set(array);
+            }
+        } catch (e) {
+            console.warn('Error cargando combinaciones validadas:', e);
+            combinacionesValidadas = new Set();
+        }
+    }
+    
+    function guardarCombinacionesValidadas() {
+        try {
+            const key = `combinaciones_validadas_${periodoLiteral}`;
+            const array = Array.from(combinacionesValidadas);
+            localStorage.setItem(key, JSON.stringify(array));
+        } catch (e) {
+            console.warn('Error guardando combinaciones validadas:', e);
         }
     }
 
@@ -590,6 +754,16 @@
         const estadosValidados = cargarEstadosValidadosDeLocalStorage();
         console.log('💾 Estados validados desde localStorage:', estadosValidados);
         
+        // **OBTENER PROGRAMA Y MODALIDAD ACTUALES PARA FILTRAR**
+        const programaSelect = document.getElementById('programa');
+        const modalidadSelect = document.getElementById('modalidad');
+        
+        // Obtener el NOMBRE del programa y modalidad seleccionados (porque el SP NO trae IDs)
+        const programaNombreSeleccionado = programaSelect?.selectedOptions[0]?.text || null;
+        const modalidadNombreSeleccionada = modalidadSelect?.selectedOptions[0]?.text || null;
+        
+        console.log(`🎓 Filtrando por Programa: "${programaNombreSeleccionado}", Modalidad: "${modalidadNombreSeleccionada}"`);
+        
         // Mapeo de semestres a números
         const semestreANumero = {
             'Primero': 1, 'Primer': 1, '1': 1, 'I': 1,
@@ -604,11 +778,41 @@
             'Décimo': 10, 'Decimo': 10, '10': 10, 'X': 10
         };
         
-        // Extraer semestres únicos disponibles del SP
+        // Extraer semestres únicos disponibles del SP (FILTRADOS POR PROGRAMA Y MODALIDAD)
         const semestresUnicos = new Set();
+        let filasDescartadas = 0;
+        let filasProcesadas = 0;
         
         // Procesar cada fila del SP
-        rows.forEach(row => {
+        rows.forEach((row, index) => {
+            // **FILTRAR POR NOMBRE DE PROGRAMA Y MODALIDAD** (el SP NO trae IDs)
+            const nombreProgramaRow = row.Nombre_Programa || null;
+            const nombreModalidadRow = row.Modalidad || null;
+            
+            // DEBUG: Mostrar primeras 3 filas para diagnóstico
+            if (index < 3) {
+                console.log(`📋 Fila ${index + 1}:`, {
+                    Nombre_Programa: nombreProgramaRow,
+                    Modalidad: nombreModalidadRow,
+                    Semestre: row.Semestre,
+                    Id_Semaforo: row.Id_Semaforo,
+                    Coincide_Programa: (!programaNombreSeleccionado || nombreProgramaRow === programaNombreSeleccionado),
+                    Coincide_Modalidad: (!modalidadNombreSeleccionada || nombreModalidadRow === modalidadNombreSeleccionada)
+                });
+            }
+            
+            // Solo procesar filas que coincidan con el programa y modalidad seleccionados
+            if (programaNombreSeleccionado && nombreProgramaRow !== programaNombreSeleccionado) {
+                filasDescartadas++;
+                return; // Saltar esta fila
+            }
+            if (modalidadNombreSeleccionada && nombreModalidadRow !== modalidadNombreSeleccionada) {
+                filasDescartadas++;
+                return; // Saltar esta fila  
+            }
+            
+            filasProcesadas++;
+            
             const semestre = row.Semestre;
             const idSemaforo = row.Id_Semaforo;
             
@@ -637,9 +841,14 @@
         
         // Actualizar variable global con semestres disponibles (ordenados)
         semestresDisponiblesSP = Array.from(semestresUnicos).sort((a, b) => a - b);
-        console.log('📚 Semestres disponibles del SP:', semestresDisponiblesSP);
         
+        console.log('🚦 === RESULTADO FINAL DE PROCESAMIENTO ===');
+        console.log(`📊 Total filas del SP: ${rows.length}`);
+        console.log(`✅ Filas procesadas: ${filasProcesadas}`);
+        console.log(`❌ Filas descartadas: ${filasDescartadas}`);
+        console.log(`📚 Semestres disponibles:`, semestresDisponiblesSP);
         console.log('🚦 Estados finales por semestre:', estadosSemaforoPorSemestre);
+        console.log('========================================');
     }
 
     // Función para procesar TODAS las filas del SP y organizar los datos por semestre
@@ -814,9 +1023,34 @@
                     const t = turnosDisponibles.find(x => parseInt(x.Id_Turno) === turnoActualId);
                     if (t) turnoActualNombre = t.Turno;
                 }
+                
+                // **OBTENER PROGRAMA Y MODALIDAD ACTUALES PARA FILTRAR TOTAL GRUPOS**
+                const programaActualId = parseInt(document.getElementById('programa')?.value || '0');
+                const programaActualNombre = document.getElementById('programa')?.selectedOptions[0]?.text || '';
+                const modalidadActualId = parseInt(document.getElementById('modalidad')?.value || '0');
+                const modalidadActualNombre = document.getElementById('modalidad')?.selectedOptions[0]?.text || '';
 
-                // Filtrar filas por semestre y turno para obtener el total correcto del contexto
+                // Filtrar filas por PROGRAMA, MODALIDAD, semestre y turno para obtener el total correcto
                 const filasContexto = rows.filter(r => {
+                    // **Filtro por programa**
+                    if (r.Id_Programa || r.Nombre_Programa) {
+                        const programaRowId = r.Id_Programa ? parseInt(r.Id_Programa) : null;
+                        const programaRowNombre = r.Nombre_Programa ? String(r.Nombre_Programa) : '';
+                        const programaMatch = (programaRowId === programaActualId) || 
+                                            (programaRowNombre.toLowerCase() === programaActualNombre.toLowerCase());
+                        if (!programaMatch) return false;
+                    }
+                    
+                    // **Filtro por modalidad**
+                    if (r.Id_Modalidad || r.Nombre_Modalidad) {
+                        const modalidadRowId = r.Id_Modalidad ? parseInt(r.Id_Modalidad) : null;
+                        const modalidadRowNombre = r.Nombre_Modalidad ? String(r.Nombre_Modalidad) : '';
+                        const modalidadMatch = (modalidadRowId === modalidadActualId) || 
+                                              (modalidadRowNombre.toLowerCase() === modalidadActualNombre.toLowerCase());
+                        if (!modalidadMatch) return false;
+                    }
+                    
+                    // Filtro por semestre
                     let semOK = true;
                     if (semestreKeyLocal) {
                         const v = r[semestreKeyLocal];
@@ -825,6 +1059,8 @@
                         semOK = byName || byId;
                     }
                     if (!semOK) return false;
+                    
+                    // Filtro por turno
                     if (turnoKey) {
                         const tv = r[turnoKey];
                         const byNameT = String(tv).toLowerCase() === String(turnoActualNombre).toLowerCase();
@@ -833,6 +1069,8 @@
                     }
                     return true;
                 });
+                
+                console.log(`🔍 Total Grupos - Filtrando rows: ${rows.length} totales → ${filasContexto.length} para Programa="${programaActualNombre}", Modalidad="${modalidadActualNombre}", Semestre="${semestreActualNombre}", Turno="${turnoActualNombre}"`);
 
                 // Buscar 'Grupos' dentro del contexto filtrado (campo actualizado del SP modificado)
                 let totalGrupos = null;
@@ -957,6 +1195,9 @@
                 // Generar las pestañas
                 generarPestanasSemestres(semestresAMostrar);
                 
+                // **IMPORTANTE**: Actualizar colores de las pestañas después de regenerarlas
+                actualizarColoresPestanas();
+                
                 // Validar que el semestre actual esté en la lista de disponibles
                 const semestreActualElement = document.getElementById('semestre');
                 const semestreActualId = semestreActualElement ? parseInt(semestreActualElement.value) : null;
@@ -981,8 +1222,8 @@
                 console.warn('⚠️ No se extrajeron semestres del SP, usando configuración por defecto');
             }
             
-            // PROCESAR Y GUARDAR DATOS DE TODOS LOS SEMESTRES
-            procesarYGuardarDatosPorSemestre(rows);
+            // ❌ NO PROCESAR DATOS AQUÍ - Se procesarán después del filtrado por programa/modalidad
+            // procesarYGuardarDatosPorSemestre(rows); // DESHABILITADO: mezcla datos de todos los programas
             
             const tbody = document.getElementById('matricula-tbody');
             
@@ -1045,8 +1286,38 @@
                 if (t) turnoActualNombre = t.Turno;
             }
 
-            // FILTRAR: Solo procesar filas del semestre actual
+            // **OBTENER PROGRAMA Y MODALIDAD ACTUALES PARA FILTRAR**
+            const programaActualId = parseInt(document.getElementById('programa')?.value || '0');
+            const programaActualNombre = document.getElementById('programa')?.selectedOptions[0]?.text || '';
+            const modalidadActualId = parseInt(document.getElementById('modalidad')?.value || '0');
+            const modalidadActualNombre = document.getElementById('modalidad')?.selectedOptions[0]?.text || '';
+            
+            console.log(`📋 Filtros activos: Programa="${programaActualNombre}" (ID:${programaActualId}), Modalidad="${modalidadActualNombre}" (ID:${modalidadActualId}), Semestre="${semestreActualNombre}" (ID:${semestreActualId}), Turno="${turnoActualNombre}" (ID:${turnoActualId})`);
+
+            // FILTRAR: Solo procesar filas del programa, modalidad, semestre y turno actual
             const rowsFiltradas = rows.filter(r => {
+                // **Filtro por programa**
+                if (r.Id_Programa || r.Nombre_Programa) {
+                    const programaRowId = r.Id_Programa ? parseInt(r.Id_Programa) : null;
+                    const programaRowNombre = r.Nombre_Programa ? String(r.Nombre_Programa) : '';
+                    const programaMatch = (programaRowId === programaActualId) || 
+                                        (programaRowNombre.toLowerCase() === programaActualNombre.toLowerCase());
+                    if (!programaMatch) {
+                        return false;
+                    }
+                }
+                
+                // **Filtro por modalidad**
+                if (r.Id_Modalidad || r.Nombre_Modalidad) {
+                    const modalidadRowId = r.Id_Modalidad ? parseInt(r.Id_Modalidad) : null;
+                    const modalidadRowNombre = r.Nombre_Modalidad ? String(r.Nombre_Modalidad) : '';
+                    const modalidadMatch = (modalidadRowId === modalidadActualId) || 
+                                          (modalidadRowNombre.toLowerCase() === modalidadActualNombre.toLowerCase());
+                    if (!modalidadMatch) {
+                        return false;
+                    }
+                }
+                
                 // Filtro por semestre
                 let semestreMatch = true;
                 if (semestreKey && semestreActualNombre) {
@@ -1073,7 +1344,7 @@
                 return semestreMatch;
             });
 
-            console.log(`🔍 Filtrando: ${rows.length} filas totales → ${rowsFiltradas.length} filas del semestre "${semestreActualNombre}"`);
+            console.log(`🔍 Filtrando: ${rows.length} filas totales → ${rowsFiltradas.length} filas para Programa "${programaActualNombre}", Modalidad "${modalidadActualNombre}", Semestre "${semestreActualNombre}", Turno "${turnoActualNombre}"`);
 
             if (rowsFiltradas.length === 0) {
                 console.log('⚠️ No hay datos para el semestre seleccionado, generando tabla vacía');
@@ -1774,7 +2045,8 @@
         }
         
         // Si no hay estado del SP, usar estado por defecto (sin datos)
-        console.log(`🚦 Semestre ${semestreNum}: Sin estado del SP, usando estado por defecto (1)`);
+        console.warn(`⚠️ Semestre ${semestreNum}: Sin estado del SP, usando estado por defecto (1 - ROJO)`);
+        console.log(`📊 Estados disponibles en estadosSemaforoPorSemestre:`, Object.keys(estadosSemaforoPorSemestre));
         return 1; // Estado por defecto - Sin datos
     }
 
@@ -2136,10 +2408,18 @@
 
         // Validar que los filtros estén seleccionados
         const periodo = document.getElementById('periodo').value;
-        const programa = document.getElementById('programa').value;
+        let programa = document.getElementById('programa').value;
         const semestre = document.getElementById('semestre').value;
         const modalidad = document.getElementById('modalidad').value;
         const turno = document.getElementById('turno').value;
+        
+        // **LÓGICA ESPECIAL PARA TRONCO COMÚN**
+        const programaSelect = document.getElementById('programa');
+        const programaNombre = programaSelect?.selectedOptions[0]?.text || '';
+        if (programaNombre.toLowerCase().includes('tronco común')) {
+            console.log(`🎓 TRONCO COMÚN detectado en guardar (ID original: ${programa}) → Forzando ID = 1`);
+            programa = '1';
+        }
         
         if (!periodo || !programa || !semestre || !modalidad || !turno) {
             alert('⚠️ Por favor, complete todos los filtros antes de guardar.');
@@ -2375,6 +2655,9 @@
     }
 
     function limpiarFormulario() {
+        console.log('🧹 Ejecutando limpiarFormulario()...');
+        
+        // Limpiar todos los inputs existentes
         const inputs = document.querySelectorAll('input.input-matricula-nueva');
         inputs.forEach(input => {
             input.value = '';
@@ -2386,6 +2669,13 @@
         const totalGruposInput = document.getElementById('input-total-grupos');
         if (totalGruposInput) {
             totalGruposInput.value = '';
+        }
+        
+        // Limpiar el tbody completamente para evitar datos residuales
+        const tbody = document.getElementById('matricula-tbody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            console.log('🗑️ Tbody limpiado');
         }
         
         calcularTotales(); // Recalcular totales después de limpiar
@@ -2424,7 +2714,10 @@
                 elemento.addEventListener('change', function() {
                     // Limpiar datos guardados cuando cambie programa o modalidad
                     console.log(`🔄 Cambió ${filtroId}, limpiando datos guardados`);
+                    
+                    // 🗑️ LIMPIAR DATOS DE MATRÍCULA POR SEMESTRE (CRÍTICO)
                     datosMatriculaPorSemestre = {};
+                    console.log('🗑️ datosMatriculaPorSemestre limpiado completamente');
                     
                     // NUEVO: Limpiar turnos validados
                     turnosValidadosPorSemestre = {};
@@ -2436,17 +2729,20 @@
                         console.warn('No se pudo limpiar turnos validados de localStorage', e);
                     }
                     
+                    // 🧹 LIMPIAR TOTAL GRUPOS POR SEMESTRE Y TURNO
+                    console.log('🗑️ Limpiando totalGruposPorSemestreYTurno...');
+                    totalGruposPorSemestreYTurno = {};
+                    guardarTotalGruposEnLocalStorage();
+                    
+                    // 🧹 LIMPIAR FORMULARIO COMPLETO INMEDIATAMENTE
+                    console.log('🧹 Limpiando formulario completo...');
+                    limpiarFormulario();
+                    
                     // Limpiar atributos data-auto-filled de todos los inputs
                     const inputs = document.querySelectorAll('input.input-matricula-nueva');
                     inputs.forEach(input => {
                         input.removeAttribute('data-auto-filled');
                     });
-                    
-                    // Limpiar también el input de Total Grupos
-                    const totalGruposInput = document.getElementById('input-total-grupos');
-                    if (totalGruposInput) {
-                        totalGruposInput.value = '';
-                    }
                     
                     console.log('🗑️ Datos de matrícula, Total Grupos, marcadores auto-filled y turnos validados limpiados por cambio de contexto');
                     
@@ -2472,7 +2768,95 @@
         
         // Calcular totales iniciales
         calcularTotales();
+        
+        // Verificar si mostrar botón "Finalizar Captura" (solo para capturistas)
+        if (esCapturista) {
+            setTimeout(() => {
+                verificarYMostrarBotonFinalizar();
+            }, 1000); // Dar tiempo a que se carguen los datos del SP
+        }
     });
+
+    // **FUNCIÓN LOCAL PARA VERIFICAR Y MOSTRAR BOTÓN FINALIZAR**
+    function verificarYMostrarBotonFinalizar() {
+        const todasValidadas = verificarTodasCombinacionesValidadas();
+        const btnFinalizar = document.getElementById('btn-finalizar-captura');
+        
+        if (todasValidadas && btnFinalizar) {
+            console.log('🏁 Mostrando botón "Finalizar Captura" - Todas las combinaciones validadas');
+            btnFinalizar.style.display = 'inline-block';
+        } else if (btnFinalizar) {
+            console.log('⏭️ Botón "Finalizar Captura" oculto - Aún faltan combinaciones');
+            btnFinalizar.style.display = 'none';
+        }
+    }
+
+    // Función para verificar si se debe mostrar el botón "Finalizar Captura" (BACKEND - LEGACY)
+    async function verificarFinalizacionDisponible() {
+        try {
+            const response = await fetch('/matricula/verificar_finalizacion_disponible');
+            const resultado = await response.json();
+            
+            console.log('🔍 Verificación de finalización (backend):', resultado);
+            
+            const btnFinalizar = document.getElementById('btn-finalizar-captura');
+            if (btnFinalizar && resultado.mostrar_boton) {
+                btnFinalizar.style.display = 'inline-block';
+                console.log('✅ Botón "Finalizar Captura" habilitado');
+            } else if (btnFinalizar) {
+                btnFinalizar.style.display = 'none';
+                console.log('⏭️ Botón "Finalizar Captura" oculto:', resultado.razon);
+            }
+        } catch (error) {
+            console.error('❌ Error verificando finalización:', error);
+        }
+    }
+
+    // Función para finalizar la captura (ejecuta el SP)
+    async function finalizarCaptura() {
+        if (!confirm('¿Está seguro de finalizar la captura?\n\n' +
+            '⚠️ Esta acción:\n' +
+            '• Completará el proceso de captura de matrícula\n' +
+            '• Cambiará el semáforo a estado "Validado"\n' +
+            '• Permitirá que los roles superiores validen la información\n' +
+            '• NO se podrán hacer más cambios después\n\n' +
+            '¿Continuar?')) {
+            return;
+        }
+        
+        const btnFinalizar = document.getElementById('btn-finalizar-captura');
+        const textoOriginal = btnFinalizar.textContent;
+        
+        try {
+            btnFinalizar.disabled = true;
+            btnFinalizar.textContent = '⏳ Finalizando...';
+            
+            const response = await fetch('/matricula/finalizar_captura', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const resultado = await response.json();
+            
+            if (resultado.error) {
+                alert('❌ Error al finalizar captura:\n\n' + resultado.error);
+                btnFinalizar.disabled = false;
+                btnFinalizar.textContent = textoOriginal;
+            } else {
+                alert('✅ ' + resultado.mensaje);
+                btnFinalizar.style.display = 'none';
+                // Recargar la página para reflejar el nuevo estado
+                location.reload();
+            }
+        } catch (error) {
+            console.error('❌ Error:', error);
+            alert('❌ Error al finalizar captura: ' + error.message);
+            btnFinalizar.disabled = false;
+            btnFinalizar.textContent = textoOriginal;
+        }
+    }
 
     // Función para validar campos vacíos
     function validarCamposVacios() {
@@ -2615,6 +2999,14 @@
     // Función para ejecutar el SP final cuando todos los turnos están listos
     async function ejecutarSPFinalSemestre(semestreActual, periodo, programa, modalidad, semestre) {
         console.log('🚀 === EJECUTANDO SP FINAL DEL SEMESTRE ===');
+        
+        // **LÓGICA ESPECIAL PARA TRONCO COMÚN**
+        const programaSelect = document.getElementById('programa');
+        const programaNombre = programaSelect?.selectedOptions[0]?.text || '';
+        if (programaNombre.toLowerCase().includes('tronco común')) {
+            console.log(`🎓 TRONCO COMÚN detectado en SP final (ID original: ${programa}) → Forzando ID = 1`);
+            programa = '1';
+        }
         
         try {
             // Obtener Total Grupos del semestre (puede ser de cualquier turno ya que es por semestre)
@@ -2841,12 +3233,20 @@
         
         // Obtener parámetros
         const periodo = document.getElementById('periodo').value;
-        const programa = document.getElementById('programa').value;
+        let programa = document.getElementById('programa').value;
         const modalidad = document.getElementById('modalidad').value;
         const semestre = document.getElementById('semestre').value;
         const turno = document.getElementById('turno').value;
         const totalGruposInput = document.getElementById('input-total-grupos');
         const totalGrupos = totalGruposInput ? parseInt(totalGruposInput.value) || 0 : 0;
+        
+        // **LÓGICA ESPECIAL PARA TRONCO COMÚN**
+        const programaSelect = document.getElementById('programa');
+        const programaNombre = programaSelect?.selectedOptions[0]?.text || '';
+        if (programaNombre.toLowerCase().includes('tronco común')) {
+            console.log(`🎓 TRONCO COMÚN detectado en validar turno (ID original: ${programa}) → Forzando ID = 1`);
+            programa = '1';
+        }
         
         if (!periodo || !programa || !modalidad || !semestre || !turno) {
             alert('⚠️ Por favor, complete todos los filtros antes de validar.');
@@ -3002,7 +3402,35 @@
             
             console.log(`✅ Turno ${turnoNombre} validado y bloqueado PERMANENTEMENTE`);
             
-            // FASE 2: VERIFICAR SI TODOS LOS TURNOS ESTÁN LISTOS
+            // **VERIFICAR SI TODOS LOS TURNOS DEL SEMESTRE ESTÁN VALIDADOS**
+            if (todosTurnosValidados(semestreActual)) {
+                console.log(`🎉 Todos los turnos del ${semestreNombre} están validados`);
+                
+                // **MARCAR ESTA COMBINACIÓN COMO VALIDADA**
+                const programaSelect = document.getElementById('programa');
+                const modalidadSelect = document.getElementById('modalidad');
+                const programaNombre = programaSelect?.selectedOptions[0]?.text || '';
+                const modalidadNombre = modalidadSelect?.selectedOptions[0]?.text || '';
+                
+                marcarCombinacionValidada(programaNombre, modalidadNombre, semestreNombre);
+                
+                // **VERIFICAR SI TODAS LAS COMBINACIONES ESTÁN VALIDADAS**
+                const todasValidadas = verificarTodasCombinacionesValidadas();
+                
+                if (todasValidadas) {
+                    console.log('🏁 ¡TODAS LAS COMBINACIONES ESTÁN VALIDADAS!');
+                    console.log('🏁 Mostrando botón "Finalizar Captura"');
+                    
+                    const btnFinalizar = document.getElementById('btn-finalizar-captura');
+                    if (btnFinalizar) {
+                        btnFinalizar.style.display = 'inline-block';
+                    }
+                } else {
+                    console.log(`📊 Aún faltan combinaciones por validar: ${combinacionesTotales.size - combinacionesValidadas.size}`);
+                }
+            }
+            
+            // FASE 2: VERIFICACIÓN DE COMPLETITUD
             console.log('🔍 === FASE 2: VERIFICACIÓN DE COMPLETITUD ===');
             
             if (todosTurnosValidados(semestreActual)) {
@@ -3647,5 +4075,5 @@
     
 </script>
 
-
 {% endblock %}
+<!-- Fin del bloque scripts -->
